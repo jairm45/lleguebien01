@@ -1,0 +1,46 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#1A1E3C", padding: 25 },
+  content: { flex: 1, justifyContent: "center" },
+  logoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#FFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    alignSelf: "flex-start",
+  },
+  title: { fontSize: 40, fontWeight: "800", color: "#FFF", letterSpacing: -1 },
+  subtitle: { fontSize: 16, color: "#D8DAEF", marginTop: 10, marginBottom: 40 },
+  question: { fontSize: 14, color: "#A6AACD", marginBottom: 15 },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    padding: 15,
+    borderRadius: 20,
+    marginBottom: 15,
+    elevation: 3,
+  },
+  iconCircle: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: "#F5A623",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 15,
+  },
+  cardText: { flex: 1 },
+  cardTitle: { fontSize: 18, fontWeight: "700", color: "#1A1E3C" },
+  cardSubtitle: { fontSize: 12, color: "#73799D", marginTop: 2 },
+  footerText: {
+    textAlign: "center",
+    color: "#A6AACD",
+    fontSize: 11,
+    marginBottom: 20,
+  },
+});

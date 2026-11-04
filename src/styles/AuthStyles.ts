@@ -1,0 +1,130 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F5A623" },
+  header: {
+    alignItems: "center",
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
+  },
+  title: { fontSize: 28, fontWeight: "800", color: "#FFF", marginTop: 10 },
+  subtitle: { fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 5 },
+  body: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 30,
+    paddingTop: 40,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#20234F",
+    marginBottom: 8,
+    marginTop: 15,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D9DDEF",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 55,
+    backgroundColor: "#F9F9F9",
+  },
+  input: { flex: 1, fontSize: 16, color: "#20234F", marginLeft: 10 },
+  pinContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 15,
+  },
+  pinBox: {
+    width: 50,
+    height: 55,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#D9DDEF",
+    backgroundColor: "#F9F9F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pinBoxFilled: { borderColor: "#F5A623", backgroundColor: "#FFF3DF" },
+  pinDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#F5A623",
+  },
+  button: {
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 30,
+    backgroundColor: "#F5A623",
+  },
+  buttonText: { color: "#FFF", fontSize: 18, fontWeight: "700" },
+  forgotPin: {
+    textAlign: "center",
+    color: "#73799D",
+    marginTop: 15,
+    fontSize: 13,
+  },
+  footerText: {
+    textAlign: "center",
+    color: "#A6AACD",
+    fontSize: 12,
+    marginTop: 30,
+  },
+
+  // Estilos para el botón de continuar
+  continueButton: {
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 30,
+    backgroundColor: "#F5A623",
+  },
+  continueButtonText: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  // regresar
+  backText: {
+    textAlign: "center",
+    color: "#73799D",
+    marginTop: 20,
+    fontSize: 14,
+    textDecorationLine: "underline",
+  },
+
+  registerContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 25,
+  },
+  registerText: {
+    color: "#73799D",
+    fontSize: 14,
+  },
+  registerLink: {
+    color: "#F5A623",
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
+});
