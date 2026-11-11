@@ -3,13 +3,13 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../services/supabase";
 import { styles } from "../styles/DatosUsuarioStyles";
@@ -54,7 +54,7 @@ export default function DatosUsuario() {
       Alert.alert("Error guardando datos", error.message);
     } else {
       Alert.alert("¡Éxito!", "Tus datos han sido guardados.");
-      router.replace("/estudiante/permisos"); // 👈 Redirige a la pantalla de permisos
+      router.replace("/estudiante/inicio");
     }
   };
 

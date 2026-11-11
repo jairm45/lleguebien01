@@ -5,15 +5,15 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { styles } from "../../styles/PermisosStyles";
+import { styles } from "../styles/PermisosStyles";
 
 export default function PermisosScreen() {
   const [ubicacion, setUbicacion] = useState(true);
@@ -21,7 +21,7 @@ export default function PermisosScreen() {
   const [movimiento, setMovimiento] = useState(true);
 
   const pedirPermisos = async () => {
-    // 1. Pedir permiso de ubicación
+    // 1. Pedir permiso de Ubicación
     if (ubicacion) {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
@@ -32,7 +32,7 @@ export default function PermisosScreen() {
       }
     }
 
-    // 2. Pedir permiso de notificaciones
+    // 2. Pedir permiso de Notificaciones
     if (notificaciones) {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== "granted") {
@@ -43,15 +43,12 @@ export default function PermisosScreen() {
       }
     }
 
-    // 3. El permiso de movimiento (acelerómetro) no requiere un diálogo nativo en Android,
-    // pero podemos asumir que se aceptó si el switch está activo.
-
-    // Continuar a la app
-    router.replace("/estudiante/inicio");
+    // 3. Continuar al recorrido
+    router.replace("/recorrido");
   };
 
   const omitir = () => {
-    router.replace("/estudiante/inicio");
+    router.replace("/recorrido");
   };
 
   return (

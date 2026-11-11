@@ -3,12 +3,12 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../../services/supabase";
 import { styles } from "../../styles/PerfilStyles";
@@ -51,6 +51,21 @@ export default function PerfilScreen() {
   // Obtener la inicial del nombre para el avatar
   const inicial = perfil?.nombre_completo?.charAt(0).toUpperCase() || "U";
   const nombreCompleto = perfil?.nombre_completo || "Usuario";
+
+  if (cargando) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#1A1E3C",
+        }}
+      >
+        <Text style={{ color: "#FFF" }}>Cargando perfil...</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -137,12 +152,10 @@ export default function PerfilScreen() {
             </Text>
           </View>
 
-          {/* Botón Editar Datos (temporal) */}
+          {/* 👇 BOTÓN DE EDITAR DATOS */}
           <TouchableOpacity
             style={styles.button}
-            onPress={() =>
-              Alert.alert("Editar", "Próximamente podrás editar tus datos.")
-            }
+            onPress={() => router.push("/editar-perfil")}
           >
             <Text style={styles.buttonText}>Editar datos</Text>
           </TouchableOpacity>

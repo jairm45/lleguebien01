@@ -2,13 +2,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
+
 import {
-    Alert,
-    SafeAreaView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../services/supabase";
 import { styles } from "../styles/AuthStyles";
@@ -91,8 +92,8 @@ export default function AuthScreen() {
 
       // Si el perfil existe y tiene identificación, ya completó sus datos
       if (perfil && perfil.identificacion) {
-        // Redirigir a permisos
-        router.replace("/estudiante/permisos");
+        // Redirigir al inicio
+        router.replace("/estudiante/inicio");
       } else {
         // Si no tiene identificación, es un usuario nuevo o incompleto
         router.replace("/datos-personales");
@@ -180,6 +181,13 @@ export default function AuthScreen() {
               <Text style={styles.buttonText}>
                 {cargando ? "Cargando..." : "Iniciar sesión"}
               </Text>
+            </TouchableOpacity>
+
+            {/* 👇 NUEVO ENLACE DE RECUPERACIÓN */}
+            <TouchableOpacity
+              onPress={() => router.push("/rol/recuperar/solicitar")}
+            >
+              <Text style={styles.forgotText}>¿Se te olvidó tu PIN?</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setPaso("correo")}>

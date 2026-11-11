@@ -57,6 +57,7 @@ export default function EstudianteLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="recorrido" options={{ href: null }} />
     </Tabs>
   );
 }

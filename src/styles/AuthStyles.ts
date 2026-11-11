@@ -88,8 +88,6 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 30,
   },
-
-  // Estilos para el botón de continuar
   continueButton: {
     height: 56,
     borderRadius: 16,
@@ -103,7 +101,6 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  // regresar
   backText: {
     textAlign: "center",
     color: "#73799D",
@@ -111,7 +108,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     textDecorationLine: "underline",
   },
-
   registerContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -126,5 +122,13 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     marginLeft: 5,
+  },
+
+  forgotText: {
+    textAlign: "center",
+    color: "#F5A623",
+    marginTop: 15,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

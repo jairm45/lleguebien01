@@ -3,12 +3,12 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../services/supabase";
 import { styles } from "../styles/AuthStyles";
@@ -76,7 +76,7 @@ export default function RegistroScreen() {
         setCargando(false);
 
         if (perfil && perfil.identificacion) {
-          router.replace("/estudiante/permisos");
+          router.replace("/estudiante/inicio");
         } else {
           router.replace("/datos-personales");
         }

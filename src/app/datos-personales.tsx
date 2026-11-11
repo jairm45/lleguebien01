@@ -3,13 +3,13 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../services/supabase";
 import { styles } from "../styles/DatosPersonalesStyles";
@@ -50,8 +50,7 @@ export default function DatosPersonales() {
       id: user.id,
       email: user.email,
       identificacion: identificacion,
-      nombre_completo: nombreCompleto, // 👈 Nombre exacto de tu columna
-      telefono: telefono,
+      nombre_completo: nombreCompleto,
       rol: "estudiante",
     });
 

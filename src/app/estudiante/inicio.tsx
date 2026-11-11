@@ -3,35 +3,29 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { SafeAreaView, Text, TouchableOpacity, View } from "react-native";
-import { supabase } from "../../services/supabase"; // Ajusta la ruta si es necesario
+import { supabase } from "../../services/supabase";
 import { styles } from "../../styles/InicioStyles";
 
 export default function InicioEstudiante() {
-  const [nombre, setNombre] = useState("Estudiante"); // Nombre por defecto
+  const [nombre, setNombre] = useState("Estudiante");
 
   useEffect(() => {
     const obtenerNombre = async () => {
-      // 1. Obtenemos el usuario logueado
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (user) {
-        // 2. Buscamos su nombre en la tabla perfiles
         const { data: perfil } = await supabase
           .from("perfiles")
           .select("nombre_completo")
           .eq("id", user.id)
           .single();
-
-        // 3. Si tiene nombre, lo mostramos (solo el primer nombre)
         if (perfil && perfil.nombre_completo) {
           const primerNombre = perfil.nombre_completo.split(" ")[0];
           setNombre(primerNombre);
         }
       }
     };
-
     obtenerNombre();
   }, []);
 
@@ -39,7 +33,6 @@ export default function InicioEstudiante() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Header Azul */}
       <View style={styles.header}>
         <Text style={styles.greeting}>Hola, {nombre}</Text>
         <Text style={styles.subtitle}>
@@ -91,7 +84,7 @@ export default function InicioEstudiante() {
           </View>
         </View>
 
-        {/* Tarjeta de seguidores (estática por ahora) */}
+        {/* Tarjeta de seguidores */}
         <View style={styles.card}>
           <View style={styles.followersRow}>
             <View style={styles.avatars}>
@@ -121,10 +114,9 @@ export default function InicioEstudiante() {
           </View>
         </View>
 
-        {/* Botón para iniciar recorrido */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.push("/estudiante/recorrido")}
+          onPress={() => router.push("/")}
         >
           <MaterialCommunityIcons
             name="map-marker-path"

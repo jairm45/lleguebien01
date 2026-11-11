@@ -1,0 +1,57 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  header: {
+    backgroundColor: "#F5A623",
+    paddingTop: 50,
+    paddingHorizontal: 25,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+  headerTitle: { fontSize: 28, fontWeight: "800", color: "#FFF" },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 5,
+  },
+  body: { padding: 25, flex: 1 },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#20234F",
+    marginBottom: 8,
+    marginTop: 15,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D9DDEF",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 55,
+    backgroundColor: "#FFFFFF",
+  },
+  icon: { marginRight: 10 },
+  input: { flex: 1, fontSize: 16, color: "#20234F" },
+  button: {
+    backgroundColor: "#1ABC9C",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 56,
+    borderRadius: 16,
+    gap: 10,
+    marginTop: 30,
+  },
+  buttonText: { color: "#FFF", fontSize: 18, fontWeight: "700" },
+  backText: {
+    textAlign: "center",
+    color: "#F5A623",
+    marginTop: 20,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});
