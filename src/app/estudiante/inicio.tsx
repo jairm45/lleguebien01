@@ -114,9 +114,35 @@ export default function InicioEstudiante() {
           </View>
         </View>
 
+        {/* 👇 NUEVO BOTÓN DE PERMISOS */}
+        <TouchableOpacity
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#FFF",
+            padding: 15,
+            borderRadius: 12,
+            marginTop: 10,
+            borderWidth: 1,
+            borderColor: "#D9DDEF",
+          }}
+          onPress={() => router.push("/permisos")}
+        >
+          <MaterialCommunityIcons
+            name="shield-lock-outline"
+            size={20}
+            color="#1A1E3C"
+          />
+          <Text style={{ color: "#1A1E3C", fontWeight: "600", marginLeft: 10 }}>
+            Activar permisos de aplicación
+          </Text>
+        </TouchableOpacity>
+
+        {/* Botón para iniciar recorrido (Corregido) */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.push("/")}
+          onPress={() => router.push("/recorrido")} // 👈 Ruta corregida
         >
           <MaterialCommunityIcons
             name="map-marker-path"

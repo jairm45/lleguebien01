@@ -43,12 +43,12 @@ export default function PermisosScreen() {
       }
     }
 
-    // 3. Continuar al recorrido
-    router.replace("/recorrido");
+    // 3. Continuar al recorrido (ya sea que haya aceptado o no)
+    router.replace("/proteccion");
   };
 
   const omitir = () => {
-    router.replace("/recorrido");
+    router.replace("/estudiante/inicio");
   };
 
   return (

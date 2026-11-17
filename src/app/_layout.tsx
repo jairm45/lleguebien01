@@ -18,6 +18,9 @@ export default function RootLayout() {
       <Stack.Screen name="datos-usuario" />
       <Stack.Screen name="recorrido" />
       <Stack.Screen name="permisos" />
+      <Stack.Screen name="proteccion" />
+      <Stack.Screen name="configuracion" />
+      <Stack.Screen name="iniciar-recorrido" />
       <Stack.Screen name="editar-perfil" />
       <Stack.Screen name="estudiante" />
       <Stack.Screen name="rol" />
