@@ -1,20 +1,34 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-    SafeAreaView,
-    ScrollView,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
+
 import { RequisitosRecorrido } from "../components/recorrido/RequisitosRecorrido";
 import { useRequisitosRecorrido } from "../hooks/useRequisitosRecorrido";
-import { DESTINO_PRUEBA } from "../lib/recorrido";
-import { supabase } from "../services/supabase";
+import { DESTINO_PRUEBA, conTimeout } from "../lib/recorrido";
+import { obtenerRutaPeatonal } from "../services/mapboxDirections";
+import { crearRecorrido } from "../services/recorridos";
+import { obtenerSeguidoresActivos } from "../services/seguidores";
 import { styles } from "../styles/IniciarRecorridoStyles";
+
+const COLORES_AVATAR = ["#1ABC9C", "#1A1E3C", "#E5484D", "#F5A623"];
+
+type SeguidorUI = {
+  id: string;
+  nombre: string;
+  inicial: string;
+  color: string;
+};
 
 export default function IniciarRecorrido() {
   const {
@@ -28,43 +42,46 @@ export default function IniciarRecorrido() {
     abrirAjustes,
   } = useRequisitosRecorrido({ monitorear: false });
 
-  const [nombre, setNombre] = useState("Estudiante");
-  const [seguidores, setSeguidores] = useState([
-    { id: 1, nombre: "Mamá", inicial: "M", color: "#1ABC9C", activo: true },
-    { id: 2, nombre: "Papá", inicial: "P", color: "#1A1E3C", activo: true },
-  ]);
+  const [seguidores, setSeguidores] = useState<SeguidorUI[]>([]);
+  const [cargandoSeguidores, setCargandoSeguidores] = useState(true);
+  const [iniciando, setIniciando] = useState(false);
 
   useEffect(() => {
-    const obtenerNombre = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("perfiles")
-          .select("nombre_completo")
-          .eq("id", user.id)
-          .single();
-        if (data?.nombre_completo) {
-          setNombre(data.nombre_completo.split(" ")[0]);
+    let activo = true;
+
+    const cargarSeguidores = async () => {
+      try {
+        const datos = await obtenerSeguidoresActivos();
+
+        if (!activo) return;
+
+        setSeguidores(
+          datos.map((seguidor, indice) => ({
+            id: seguidor.id,
+            nombre: seguidor.nombre,
+            inicial:
+              seguidor.nombre.trim().charAt(0).toUpperCase() || "S",
+            color: COLORES_AVATAR[indice % COLORES_AVATAR.length],
+          })),
+        );
+      } catch (error) {
+        if (activo) {
+          console.warn("[seguidores] No se pudieron cargar", error);
         }
+      } finally {
+        if (activo) setCargandoSeguidores(false);
       }
     };
-    obtenerNombre();
+
+    void cargarSeguidores();
+
+    return () => {
+      activo = false;
+    };
   }, []);
 
-  const toggleSeguidor = (id: number) => {
-    setSeguidores(
-      seguidores.map((s) => (s.id === id ? { ...s, activo: !s.activo } : s)),
-    );
-  };
-
   const comenzarRecorrido = async () => {
-    const activos = seguidores.filter((s) => s.activo);
-    if (activos.length === 0) {
-      alert("Selecciona al menos un seguidor para acompañarte.");
-      return;
-    }
+    if (iniciando) return;
 
     const requisitosActuales = await revalidar();
 
@@ -76,7 +93,52 @@ export default function IniciarRecorrido() {
       return;
     }
 
-    router.push("/recorrido");
+    setIniciando(true);
+
+    try {
+      const ultimaUbicacion = await Location.getLastKnownPositionAsync({
+        maxAge: 60000,
+        requiredAccuracy: 100,
+      }).catch(() => null);
+
+      const posicion =
+        ultimaUbicacion ??
+        (await conTimeout(
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          }),
+          12000,
+          "No se pudo obtener tu ubicación actual.",
+        ));
+
+      const origen = {
+        latitude: posicion.coords.latitude,
+        longitude: posicion.coords.longitude,
+      };
+
+      const ruta = await obtenerRutaPeatonal(origen, DESTINO_PRUEBA);
+
+      const recorridoId = await crearRecorrido({
+        origen,
+        destino: DESTINO_PRUEBA,
+        destinoNombre: DESTINO_PRUEBA.nombre,
+        ruta: ruta?.feature ?? null,
+      });
+
+      router.push({
+        pathname: "/recorrido",
+        params: { recorridoId },
+      });
+    } catch (error) {
+      Alert.alert(
+        "No se pudo iniciar el recorrido",
+        error instanceof Error
+          ? error.message
+          : "Inténtalo de nuevo en unos segundos.",
+      );
+    } finally {
+      setIniciando(false);
+    }
   };
 
   return (
@@ -91,7 +153,6 @@ export default function IniciarRecorrido() {
         </View>
 
         <View style={styles.body}>
-          {/* Tarjeta de ruta */}
           <View style={styles.routeCard}>
             <View style={styles.routeRow}>
               <View style={[styles.iconCircle, { backgroundColor: "#FFF3DF" }]}>
@@ -124,26 +185,49 @@ export default function IniciarRecorrido() {
             </View>
           </View>
 
-          {/* Seguidores */}
           <Text style={styles.sectionTitle}>¿Quién te acompaña?</Text>
-          {seguidores.map((seguidor) => (
-            <View key={seguidor.id} style={styles.followerCard}>
-              <View
-                style={[styles.avatar, { backgroundColor: seguidor.color }]}
-              >
-                <Text style={styles.avatarText}>{seguidor.inicial}</Text>
-              </View>
-              <Text style={styles.followerName}>{seguidor.nombre}</Text>
-              <Switch
-                trackColor={{ false: "#D9DDEF", true: "#1ABC9C" }}
-                thumbColor="#FFF"
-                onValueChange={() => toggleSeguidor(seguidor.id)}
-                value={seguidor.activo}
-              />
-            </View>
-          ))}
 
-          {/* Nota informativa */}
+          {cargandoSeguidores ? (
+            <View style={styles.followersLoading}>
+              <ActivityIndicator color="#1ABC9C" size="small" />
+              <Text style={styles.emptyText}>Cargando seguidores...</Text>
+            </View>
+          ) : seguidores.length === 0 ? (
+            <View style={styles.emptyFollowers}>
+              <MaterialCommunityIcons
+                name="account-group-outline"
+                size={30}
+                color="#73799D"
+              />
+              <Text style={styles.emptyTitle}>
+                Aún no tienes seguidores vinculados
+              </Text>
+              <Text style={styles.emptyText}>
+                Puedes iniciar el recorrido igualmente. Cuando vincules a
+                alguien, aparecerá aquí.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {seguidores.map((seguidor) => (
+                <View key={seguidor.id} style={styles.followerCard}>
+                  <View
+                    style={[styles.avatar, { backgroundColor: seguidor.color }]}
+                  >
+                    <Text style={styles.avatarText}>{seguidor.inicial}</Text>
+                  </View>
+                  <Text style={styles.followerName}>{seguidor.nombre}</Text>
+                  <View style={styles.statusChip}>
+                    <Text style={styles.statusChipText}>Activo</Text>
+                  </View>
+                </View>
+              ))}
+              <Text style={styles.followersHint}>
+                Todos tus seguidores activos recibirán tu ubicación.
+              </Text>
+            </>
+          )}
+
           <View style={styles.infoBox}>
             <MaterialCommunityIcons
               name="shield-alert-outline"
@@ -169,14 +253,14 @@ export default function IniciarRecorrido() {
             </View>
           ) : null}
 
-          {/* Botón de comenzar */}
           <TouchableOpacity
             style={[
               styles.button,
-              (!requisitosOk || verificando) && styles.buttonDisabled,
+              (!requisitosOk || verificando || iniciando) &&
+                styles.buttonDisabled,
             ]}
             onPress={comenzarRecorrido}
-            disabled={!requisitosOk || verificando}
+            disabled={!requisitosOk || verificando || iniciando}
           >
             <MaterialCommunityIcons
               name="map-marker-path"
@@ -184,7 +268,11 @@ export default function IniciarRecorrido() {
               color="#FFF"
             />
             <Text style={styles.buttonText}>
-              {verificando ? "Verificando..." : "Comenzar recorrido"}
+              {iniciando
+                ? "Creando recorrido..."
+                : verificando
+                  ? "Verificando..."
+                  : "Comenzar recorrido"}
             </Text>
           </TouchableOpacity>
         </View>

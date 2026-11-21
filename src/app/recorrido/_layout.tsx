@@ -11,6 +11,7 @@ export default function RecorridoLayout() {
         }}
       >
         <Stack.Screen name="index" />
+        <Stack.Screen name="llegada" />
       </Stack>
     </SafeAreaProvider>
   );

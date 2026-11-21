@@ -66,16 +66,52 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1ABC9C",
   },
+  recorridoText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#1A1E3C",
+    marginTop: 6,
+  },
   approximateText: {
     fontSize: 11,
     color: "#D98700",
     marginTop: 4,
   },
-  bannerWrap: {
+  bannersContainer: {
     position: "absolute",
     left: 16,
     right: 16,
     zIndex: 20,
+    gap: 8,
+  },
+  riskBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#FFF5F5",
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: "#E5484D",
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  riskTextWrap: {
+    flex: 1,
+  },
+  riskTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1A1E3C",
+  },
+  riskText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#E5484D",
+    marginTop: 2,
   },
   bottomPanel: {
     position: "absolute",

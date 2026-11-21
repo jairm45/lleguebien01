@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import type { Feature, LineString } from "geojson";
 import { useEffect, useMemo, useState } from "react";
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MapaMapbox } from "../../components/recorrido/MapaMapbox";
 import { RequisitosRecorrido } from "../../components/recorrido/RequisitosRecorrido";
 import { useRequisitosRecorrido } from "../../hooks/useRequisitosRecorrido";
+import { useUbicacionRecorrido } from "../../hooks/useUbicacionRecorrido";
 import {
   CENTRO_BUENAVENTURA,
   DESTINO_PRUEBA,
@@ -27,6 +28,10 @@ import {
   type Coordenada,
 } from "../../lib/recorrido";
 import { obtenerRutaPeatonal } from "../../services/mapboxDirections";
+import {
+  finalizarRecorrido,
+  obtenerRecorridoActivo,
+} from "../../services/recorridos";
 import {
   obtenerZonasRiesgo,
   type ZonasRiesgo,
@@ -40,6 +45,11 @@ const ZONAS_VACIAS: ZonasRiesgo = {
 
 export default function RecorridoActivoScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ recorridoId?: string }>();
+  const recorridoIdParam = Array.isArray(params.recorridoId)
+    ? params.recorridoId[0]
+    : params.recorridoId;
+
   const {
     requisitosOk,
     faltantes,
@@ -49,6 +59,15 @@ export default function RecorridoActivoScreen() {
     solicitarPermiso,
     abrirAjustes,
   } = useRequisitosRecorrido({ intervaloMs: 7000 });
+
+  const [recorridoId, setRecorridoId] = useState<string | null>(
+    recorridoIdParam ?? null,
+  );
+  const [buscandoRecorrido, setBuscandoRecorrido] = useState(
+    !recorridoIdParam,
+  );
+  const [trackingActivo, setTrackingActivo] = useState(true);
+  const [finalizando, setFinalizando] = useState(false);
 
   const [ubicacion, setUbicacion] = useState<Coordenada | null>(null);
   const [zonas, setZonas] = useState<ZonasRiesgo>(ZONAS_VACIAS);
@@ -62,8 +81,55 @@ export default function RecorridoActivoScreen() {
   const [mapaIniciado, setMapaIniciado] = useState(false);
   const [intentoCarga, setIntentoCarga] = useState(0);
 
+  const {
+    distanciaRecorridaM,
+    enZonaRiesgo,
+    zonasRiesgoActuales,
+    enviando,
+    ultimoError,
+  } = useUbicacionRecorrido({
+    recorridoId,
+    listo: requisitosOk && trackingActivo,
+  });
+
+  // Si se entra sin parámetro, recupera un recorrido activo o vuelve al inicio.
   useEffect(() => {
-    if (!requisitosOk) {
+    if (recorridoId) {
+      setBuscandoRecorrido(false);
+      return;
+    }
+
+    let activo = true;
+
+    const recuperar = async () => {
+      try {
+        const recorridoActivo = await obtenerRecorridoActivo();
+
+        if (!activo) return;
+
+        if (recorridoActivo) {
+          setRecorridoId(recorridoActivo.id);
+        } else {
+          router.replace("/iniciar-recorrido");
+        }
+      } catch {
+        if (activo) {
+          router.replace("/iniciar-recorrido");
+        }
+      } finally {
+        if (activo) setBuscandoRecorrido(false);
+      }
+    };
+
+    void recuperar();
+
+    return () => {
+      activo = false;
+    };
+  }, [recorridoId]);
+
+  useEffect(() => {
+    if (!requisitosOk || !recorridoId) {
       setCargando(false);
       return;
     }
@@ -155,12 +221,17 @@ export default function RecorridoActivoScreen() {
     return () => {
       cancelado = true;
     };
-  }, [intentoCarga, requisitosOk]);
+  }, [intentoCarga, recorridoId, requisitosOk]);
 
   const eta = useMemo(
     () =>
       `${formatearDuracion(duracionSegundos)} · ${formatearDistancia(distanciaMetros)}`,
     [distanciaMetros, duracionSegundos],
+  );
+
+  const zonaPrincipal = zonasRiesgoActuales[0];
+  const hayBanners = Boolean(
+    (enZonaRiesgo && zonaPrincipal) || !requisitosOk,
   );
 
   const reintentarCarga = () => {
@@ -169,12 +240,38 @@ export default function RecorridoActivoScreen() {
     void revalidar();
   };
 
-  if ((verificando || cargando) && !mapaIniciado) {
+  const manejarLlegada = async () => {
+    if (!recorridoId || finalizando) return;
+
+    setFinalizando(true);
+    setTrackingActivo(false);
+
+    try {
+      const resumen = await finalizarRecorrido(recorridoId);
+
+      router.replace({
+        pathname: "/recorrido/llegada",
+        params: { resumen: JSON.stringify(resumen) },
+      });
+    } catch (errorFinalizacion) {
+      setTrackingActivo(true);
+      setFinalizando(false);
+
+      Alert.alert(
+        "No se pudo finalizar el recorrido",
+        errorFinalizacion instanceof Error
+          ? errorFinalizacion.message
+          : "Inténtalo de nuevo.",
+      );
+    }
+  };
+
+  if (buscandoRecorrido || ((verificando || cargando) && !mapaIniciado)) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#1ABC9C" size="large" />
         <Text style={styles.loadingText}>
-          Verificando GPS, permisos y conexión...
+          Verificando GPS, permisos, conexión y recorrido...
         </Text>
       </View>
     );
@@ -251,6 +348,10 @@ export default function RecorridoActivoScreen() {
             <Text style={styles.eta}>{eta}</Text>
             <Text style={styles.destino}>Hacia {DESTINO_PRUEBA.nombre}</Text>
 
+            <Text style={styles.recorridoText}>
+              Recorrido real: {formatearDistancia(distanciaRecorridaM)}
+            </Text>
+
             <View style={styles.liveRow}>
               <View style={styles.liveDot} />
               <Text style={styles.liveText}>compartiendo en vivo</Text>
@@ -267,20 +368,47 @@ export default function RecorridoActivoScreen() {
                 No se pudieron cargar las zonas de riesgo.
               </Text>
             ) : null}
+
+            {ultimoError ? (
+              <Text style={styles.approximateText}>{ultimoError}</Text>
+            ) : null}
           </View>
         </View>
       </View>
 
-      {!requisitosOk ? (
-        <View style={[styles.bannerWrap, { top: insets.top + 178 }]}>
-          <RequisitosRecorrido
-            variante="banner"
-            faltantes={faltantes}
-            puedeSolicitarPermiso={puedeSolicitarPermiso}
-            onReintentar={() => void revalidar()}
-            onAbrirAjustes={() => void abrirAjustes()}
-            onSolicitarPermiso={() => void solicitarPermiso()}
-          />
+      {hayBanners ? (
+        <View style={[styles.bannersContainer, { top: insets.top + 198 }]}>
+          {enZonaRiesgo && zonaPrincipal ? (
+            <View style={styles.riskBanner}>
+              <MaterialCommunityIcons
+                name="alert"
+                size={20}
+                color="#E5484D"
+              />
+              <View style={styles.riskTextWrap}>
+                <Text style={styles.riskTitle}>
+                  Estás entrando en: {zonaPrincipal.nombre}
+                </Text>
+                <Text style={styles.riskText}>
+                  Riesgo {zonaPrincipal.nivel}
+                  {zonasRiesgoActuales.length > 1
+                    ? ` · ${zonasRiesgoActuales.length} zonas activas`
+                    : ""}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {!requisitosOk ? (
+            <RequisitosRecorrido
+              variante="banner"
+              faltantes={faltantes}
+              puedeSolicitarPermiso={puedeSolicitarPermiso}
+              onReintentar={() => void revalidar()}
+              onAbrirAjustes={() => void abrirAjustes()}
+              onSolicitarPermiso={() => void solicitarPermiso()}
+            />
+          ) : null}
         </View>
       ) : null}
 
@@ -290,11 +418,14 @@ export default function RecorridoActivoScreen() {
             <View style={styles.liveDot} />
             <Text style={styles.liveBadgeText}>En vivo</Text>
           </View>
-          <Text style={styles.bottomText}>Compartiendo ubicación</Text>
+          <Text style={styles.bottomText}>
+            {enviando ? "Sincronizando ubicación..." : "Compartiendo ubicación"}
+          </Text>
         </View>
 
         <Text style={styles.bottomText}>
-          Tu recorrido se actualiza mientras la app está abierta.
+          Tu recorrido se actualiza cada 5 segundos mientras la app está
+          abierta.
         </Text>
 
         <View style={styles.actions}>
@@ -323,23 +454,25 @@ export default function RecorridoActivoScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Ya llegué"
-            onPress={() =>
-              Alert.alert(
-                "Ya llegué",
-                "El cierre del recorrido estará disponible en la Fase 2.",
-              )
-            }
+            disabled={finalizando}
+            onPress={() => void manejarLlegada()}
             style={({ pressed }) => [
               styles.arrivedButton,
-              pressed && { opacity: 0.85 },
+              (pressed || finalizando) && { opacity: 0.75 },
             ]}
           >
-            <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={20}
-              color="#FFFFFF"
-            />
-            <Text style={styles.buttonText}>Ya llegué</Text>
+            {finalizando ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <MaterialCommunityIcons
+                name="check-circle-outline"
+                size={20}
+                color="#FFFFFF"
+              />
+            )}
+            <Text style={styles.buttonText}>
+              {finalizando ? "Finalizando..." : "Ya llegué"}
+            </Text>
           </Pressable>
         </View>
       </View>
