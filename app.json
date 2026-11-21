@@ -8,7 +8,14 @@
     "scheme": "lleguebien01",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.freddy021.LlegueBien01",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "audio"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,7 +45,25 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-status-bar",
+      "expo-web-browser",
+      "@rnmapbox/maps",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "LlegueBien necesita tu ubicación para compartir tu recorrido en tiempo real.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
