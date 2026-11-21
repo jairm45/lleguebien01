@@ -90,4 +90,5 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   buttonText: { color: "#FFF", fontSize: 18, fontWeight: "700" },
+  buttonDisabled: { opacity: 0.5 },
 });

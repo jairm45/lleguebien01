@@ -10,10 +10,24 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { RequisitosRecorrido } from "../components/recorrido/RequisitosRecorrido";
+import { useRequisitosRecorrido } from "../hooks/useRequisitosRecorrido";
+import { DESTINO_PRUEBA } from "../lib/recorrido";
 import { supabase } from "../services/supabase";
 import { styles } from "../styles/IniciarRecorridoStyles";
 
 export default function IniciarRecorrido() {
+  const {
+    requisitosOk,
+    faltantes,
+    verificando,
+    haVerificado,
+    puedeSolicitarPermiso,
+    revalidar,
+    solicitarPermiso,
+    abrirAjustes,
+  } = useRequisitosRecorrido({ monitorear: false });
+
   const [nombre, setNombre] = useState("Estudiante");
   const [seguidores, setSeguidores] = useState([
     { id: 1, nombre: "Mamá", inicial: "M", color: "#1ABC9C", activo: true },
@@ -45,13 +59,23 @@ export default function IniciarRecorrido() {
     );
   };
 
-  const comenzarRecorrido = () => {
+  const comenzarRecorrido = async () => {
     const activos = seguidores.filter((s) => s.activo);
     if (activos.length === 0) {
       alert("Selecciona al menos un seguidor para acompañarte.");
       return;
     }
-    // Aquí iría la lógica para iniciar el recorrido en Supabase
+
+    const requisitosActuales = await revalidar();
+
+    if (
+      !requisitosActuales.gps ||
+      !requisitosActuales.permisos ||
+      !requisitosActuales.red
+    ) {
+      return;
+    }
+
     router.push("/recorrido");
   };
 
@@ -72,14 +96,14 @@ export default function IniciarRecorrido() {
             <View style={styles.routeRow}>
               <View style={[styles.iconCircle, { backgroundColor: "#FFF3DF" }]}>
                 <MaterialCommunityIcons
-                  name="school"
+                  name="crosshairs-gps"
                   size={24}
                   color="#F5A623"
                 />
               </View>
               <View style={styles.routeInfo}>
                 <Text style={styles.routeLabel}>Salida</Text>
-                <Text style={styles.routeValue}>Universidad</Text>
+                <Text style={styles.routeValue}>Mi ubicación actual</Text>
               </View>
             </View>
 
@@ -87,11 +111,15 @@ export default function IniciarRecorrido() {
 
             <View style={styles.routeRow}>
               <View style={[styles.iconCircle, { backgroundColor: "#E8F8F5" }]}>
-                <MaterialCommunityIcons name="home" size={24} color="#1ABC9C" />
+                <MaterialCommunityIcons
+                  name="school"
+                  size={24}
+                  color="#1ABC9C"
+                />
               </View>
               <View style={styles.routeInfo}>
                 <Text style={styles.routeLabel}>Destino</Text>
-                <Text style={styles.routeValue}>Casa</Text>
+                <Text style={styles.routeValue}>{DESTINO_PRUEBA.nombre}</Text>
               </View>
             </View>
           </View>
@@ -127,14 +155,37 @@ export default function IniciarRecorrido() {
             </Text>
           </View>
 
+          {haVerificado && faltantes.length > 0 ? (
+            <View style={{ marginTop: 14 }}>
+              <RequisitosRecorrido
+                variante="card"
+                faltantes={faltantes}
+                verificando={verificando}
+                puedeSolicitarPermiso={puedeSolicitarPermiso}
+                onReintentar={() => void revalidar()}
+                onAbrirAjustes={() => void abrirAjustes()}
+                onSolicitarPermiso={() => void solicitarPermiso()}
+              />
+            </View>
+          ) : null}
+
           {/* Botón de comenzar */}
-          <TouchableOpacity style={styles.button} onPress={comenzarRecorrido}>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              (!requisitosOk || verificando) && styles.buttonDisabled,
+            ]}
+            onPress={comenzarRecorrido}
+            disabled={!requisitosOk || verificando}
+          >
             <MaterialCommunityIcons
               name="map-marker-path"
               size={24}
               color="#FFF"
             />
-            <Text style={styles.buttonText}>Comenzar recorrido</Text>
+            <Text style={styles.buttonText}>
+              {verificando ? "Verificando..." : "Comenzar recorrido"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -142,7 +142,7 @@ export default function InicioEstudiante() {
         {/* Botón para iniciar recorrido (Corregido) */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.push("/recorrido")} // 👈 Ruta corregida
+          onPress={() => router.push("/iniciar-recorrido")}
         >
           <MaterialCommunityIcons
             name="map-marker-path"
