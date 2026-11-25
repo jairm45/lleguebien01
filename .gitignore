@@ -43,4 +43,7 @@ example
 /android
 .agents
 .env
-/docs
+/docs/*
+!/docs/migration-*.sql
+!/docs/seed-zonas-riesgo.sql
+/supabase/.temp/

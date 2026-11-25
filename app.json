@@ -63,7 +63,9 @@
           "enableBackgroundPlayback": true
         }
       ],
-      "expo-asset"
+      ["expo-notifications", { "enableBackgroundRemoteNotifications": true }],
+      "expo-asset",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

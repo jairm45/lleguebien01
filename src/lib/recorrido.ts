@@ -3,15 +3,9 @@ export type Coordenada = {
   longitude: number;
 };
 
-export const DESTINO_PRUEBA = {
-  nombre: "Universidad del Pacífico",
-  latitude: 3.8445,
-  longitude: -76.9932,
-} as const;
-
 export const CENTRO_BUENAVENTURA: Coordenada = {
   latitude: 3.8801,
-  longitude: -77.0312,
+  longitude: -77.0197,
 };
 
 const RADIO_TIERRA_METROS = 6371000;

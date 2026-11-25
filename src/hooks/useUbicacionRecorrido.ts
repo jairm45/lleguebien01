@@ -3,9 +3,14 @@ import { useEffect, useRef, useState } from "react";
 
 import type { Coordenada } from "../lib/recorrido";
 import {
+  encolarEventoOffline,
+  generarClientEventId,
+} from "../services/colaOffline";
+import {
   registrarUbicacionRecorrido,
   type ZonaRiesgoActiva,
 } from "../services/recorridos";
+import { hayConectividad } from "../services/red";
 
 type Opciones = {
   recorridoId: string | null;
@@ -52,17 +57,37 @@ export function useUbicacionRecorrido({
       enviandoLocal = true;
       setEnviando(true);
 
+      const clientEventId = generarClientEventId();
+      const capturedAt = new Date(
+        posicion.timestamp || Date.now(),
+      ).toISOString();
+
+      const coordenada = {
+        latitude: posicion.coords.latitude,
+        longitude: posicion.coords.longitude,
+      };
+
+      const payload = {
+        recorridoId,
+        lat: coordenada.latitude,
+        lng: coordenada.longitude,
+        precision: posicion.coords.accuracy,
+        velocidad: posicion.coords.speed,
+        heading: posicion.coords.heading,
+        capturedAt,
+        clientEventId,
+      };
+
       try {
         const resultado = await registrarUbicacionRecorrido(
           recorridoId,
-          {
-            latitude: posicion.coords.latitude,
-            longitude: posicion.coords.longitude,
-          },
+          coordenada,
           {
             precision: posicion.coords.accuracy,
             velocidad: posicion.coords.speed,
             heading: posicion.coords.heading,
+            capturedAt,
+            clientEventId,
           },
         );
 
@@ -80,6 +105,15 @@ export function useUbicacionRecorrido({
             ? error.message
             : "No se pudo enviar la ubicación.",
         );
+
+        // Solo se encola si el fallo es por falta de red. Un rechazo del
+        // servidor (recorrido cerrado, coordenada inválida) no debe bloquear
+        // la cola FIFO con un evento imposible de procesar.
+        const conectado = await hayConectividad();
+
+        if (!conectado) {
+          await encolarEventoOffline("ubicacion", 2, payload);
+        }
       } finally {
         enviandoLocal = false;
         if (montado) setEnviando(false);

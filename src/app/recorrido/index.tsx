@@ -1,25 +1,27 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import type { Feature, LineString } from "geojson";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Pressable,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { completarIntencion, siguienteIntencion } from "../../services/intencionesNotificacion";
 import { MapaMapbox } from "../../components/recorrido/MapaMapbox";
+import { ModalCheckinSeguridad } from "../../components/recorrido/ModalCheckinSeguridad";
 import { RequisitosRecorrido } from "../../components/recorrido/RequisitosRecorrido";
-import { useRequisitosRecorrido } from "../../hooks/useRequisitosRecorrido";
-import { useUbicacionRecorrido } from "../../hooks/useUbicacionRecorrido";
+import { useRecorrido } from "../../context/RecorridoContext";
+import { useDetectorSacudidas } from "../../hooks/useDetectorSacudidas";
 import {
   CENTRO_BUENAVENTURA,
-  DESTINO_PRUEBA,
   conTimeout,
   distanciaHaversineMetros,
   estimarDuracionSegundos,
@@ -28,10 +30,6 @@ import {
   type Coordenada,
 } from "../../lib/recorrido";
 import { obtenerRutaPeatonal } from "../../services/mapboxDirections";
-import {
-  finalizarRecorrido,
-  obtenerRecorridoActivo,
-} from "../../services/recorridos";
 import {
   obtenerZonasRiesgo,
   type ZonasRiesgo,
@@ -45,12 +43,11 @@ const ZONAS_VACIAS: ZonasRiesgo = {
 
 export default function RecorridoActivoScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ recorridoId?: string }>();
-  const recorridoIdParam = Array.isArray(params.recorridoId)
-    ? params.recorridoId[0]
-    : params.recorridoId;
-
+  const enfocado = useIsFocused();
   const {
+    recorridoId,
+    destino,
+    recuperando,
     requisitosOk,
     faltantes,
     verificando,
@@ -58,16 +55,21 @@ export default function RecorridoActivoScreen() {
     revalidar,
     solicitarPermiso,
     abrirAjustes,
-  } = useRequisitosRecorrido({ intervaloMs: 7000 });
-
-  const [recorridoId, setRecorridoId] = useState<string | null>(
-    recorridoIdParam ?? null,
-  );
-  const [buscandoRecorrido, setBuscandoRecorrido] = useState(
-    !recorridoIdParam,
-  );
-  const [trackingActivo, setTrackingActivo] = useState(true);
-  const [finalizando, setFinalizando] = useState(false);
+    distanciaRecorridaM,
+    enZonaRiesgo,
+    zonasRiesgoActuales,
+    enviando,
+    ultimoError,
+    pendientesOffline,
+    alertaActiva,
+    avisoSegundoPlano,
+    sacudidasNecesarias,
+    checkin,
+    presentarCheckin,
+    respondiendoCheckin,
+    responderCheckin,
+    finalizarRecorridoActual,
+  } = useRecorrido();
 
   const [ubicacion, setUbicacion] = useState<Coordenada | null>(null);
   const [zonas, setZonas] = useState<ZonasRiesgo>(ZONAS_VACIAS);
@@ -80,56 +82,56 @@ export default function RecorridoActivoScreen() {
   const [error, setError] = useState<string | null>(null);
   const [mapaIniciado, setMapaIniciado] = useState(false);
   const [intentoCarga, setIntentoCarga] = useState(0);
+  const [finalizando, setFinalizando] = useState(false);
 
-  const {
-    distanciaRecorridaM,
-    enZonaRiesgo,
-    zonasRiesgoActuales,
-    enviando,
-    ultimoError,
-  } = useUbicacionRecorrido({
-    recorridoId,
-    listo: requisitosOk && trackingActivo,
+  const accion = useLocalSearchParams<{ recorridoId?: string; ayudaCheckin?: string; intencion?: string }>();
+  const atendiendo = useRef<string | null>(null);
+  useEffect(() => {
+    const { ayudaCheckin, intencion } = accion;
+    if (!enfocado || !intencion || !ayudaCheckin || recorridoId !== accion.recorridoId ||
+        atendiendo.current === intencion) return;
+    atendiendo.current = intencion;
+    void siguienteIntencion().then(async pendiente => {
+        if (pendiente?.clave !== intencion || pendiente.datos.checkin_id !== ayudaCheckin ||
+            pendiente.datos.recorrido_id !== recorridoId) return;
+        await responderCheckin("necesito_ayuda", ayudaCheckin);
+        await completarIntencion(intencion);
+        router.replace({ pathname: "/recorrido/emergencia", params: { modo: "silencioso" } });
+      })
+      .catch(() => {
+        atendiendo.current = null;
+        Alert.alert("No se pudo guardar el SOS", "Reintenta pedir ayuda.");
+      });
+  }, [accion, enfocado, recorridoId, responderCheckin]);
+
+  useDetectorSacudidas({
+    activo:
+      enfocado &&
+      Boolean(recorridoId) &&
+      requisitosOk &&
+      !alertaActiva,
+    sacudidasNecesarias,
+    onDetectar: () => {
+      if (!alertaActiva) {
+        router.push("/recorrido/cuenta-regresiva");
+      }
+    },
   });
 
-  // Si se entra sin parámetro, recupera un recorrido activo o vuelve al inicio.
   useEffect(() => {
-    if (recorridoId) {
-      setBuscandoRecorrido(false);
-      return;
+    if (!finalizando && !recuperando && (!recorridoId || !destino)) {
+      router.replace("/iniciar-recorrido");
     }
-
-    let activo = true;
-
-    const recuperar = async () => {
-      try {
-        const recorridoActivo = await obtenerRecorridoActivo();
-
-        if (!activo) return;
-
-        if (recorridoActivo) {
-          setRecorridoId(recorridoActivo.id);
-        } else {
-          router.replace("/iniciar-recorrido");
-        }
-      } catch {
-        if (activo) {
-          router.replace("/iniciar-recorrido");
-        }
-      } finally {
-        if (activo) setBuscandoRecorrido(false);
-      }
-    };
-
-    void recuperar();
-
-    return () => {
-      activo = false;
-    };
-  }, [recorridoId]);
+  }, [destino, finalizando, recorridoId, recuperando]);
 
   useEffect(() => {
-    if (!requisitosOk || !recorridoId) {
+    if (enfocado && alertaActiva && !accion.ayudaCheckin) {
+      router.replace({ pathname: "/recorrido/emergencia", params: { modo: alertaActiva.modo } });
+    }
+  }, [accion.ayudaCheckin, alertaActiva, enfocado]);
+
+  useEffect(() => {
+    if (!requisitosOk || !recorridoId || !destino) {
       setCargando(false);
       return;
     }
@@ -167,7 +169,7 @@ export default function RecorridoActivoScreen() {
 
         const [resultadoZonas, resultadoRuta] = await Promise.allSettled([
           obtenerZonasRiesgo(),
-          obtenerRutaPeatonal(origen, DESTINO_PRUEBA),
+          obtenerRutaPeatonal(origen, destino),
         ]);
 
         if (cancelado) return;
@@ -186,7 +188,7 @@ export default function RecorridoActivoScreen() {
           setDuracionSegundos(resultadoRuta.value.duracionSegundos);
           setRutaAproximada(false);
         } else {
-          const distancia = distanciaHaversineMetros(origen, DESTINO_PRUEBA);
+          const distancia = distanciaHaversineMetros(origen, destino);
 
           setRuta({
             type: "Feature",
@@ -194,7 +196,7 @@ export default function RecorridoActivoScreen() {
               type: "LineString",
               coordinates: [
                 [origen.longitude, origen.latitude],
-                [DESTINO_PRUEBA.longitude, DESTINO_PRUEBA.latitude],
+                [destino.longitude, destino.latitude],
               ],
             },
             properties: {},
@@ -221,7 +223,7 @@ export default function RecorridoActivoScreen() {
     return () => {
       cancelado = true;
     };
-  }, [intentoCarga, recorridoId, requisitosOk]);
+  }, [destino, intentoCarga, recorridoId, requisitosOk]);
 
   const eta = useMemo(
     () =>
@@ -244,17 +246,15 @@ export default function RecorridoActivoScreen() {
     if (!recorridoId || finalizando) return;
 
     setFinalizando(true);
-    setTrackingActivo(false);
 
     try {
-      const resumen = await finalizarRecorrido(recorridoId);
+      const resumen = await finalizarRecorridoActual();
 
       router.replace({
         pathname: "/recorrido/llegada",
         params: { resumen: JSON.stringify(resumen) },
       });
     } catch (errorFinalizacion) {
-      setTrackingActivo(true);
       setFinalizando(false);
 
       Alert.alert(
@@ -266,7 +266,55 @@ export default function RecorridoActivoScreen() {
     }
   };
 
-  if (buscandoRecorrido || ((verificando || cargando) && !mapaIniciado)) {
+  // Salir de E10 sin finalizar dejaría el recorrido abierto y sin GPS.
+  const confirmarSalida = () => {
+    Alert.alert(
+      "¿Finalizar el recorrido?",
+      "Dejarás de compartir tu ubicación con tus seguidores.",
+      [
+        { text: "Seguir aquí", style: "cancel" },
+        {
+          text: "Finalizar",
+          style: "destructive",
+          onPress: () => void manejarLlegada(),
+        },
+      ],
+    );
+  };
+
+  const salidaRef = useRef(confirmarSalida);
+
+  useEffect(() => {
+    salidaRef.current = confirmarSalida;
+  });
+
+  useEffect(() => {
+    const suscripcion = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        salidaRef.current();
+        return true;
+      },
+    );
+
+    return () => suscripcion.remove();
+  }, []);
+
+  if (enfocado && checkin && checkin.recorrido_id === recorridoId && !alertaActiva) {
+    const responder = (respuesta: "estoy_bien" | "necesito_ayuda") => {
+      void responderCheckin(respuesta, checkin.checkin_id).catch(() =>
+        Alert.alert("No se pudo guardar tu respuesta", "Vuelve a intentarlo."));
+    };
+    return <ModalCheckinSeguridad key={checkin.checkin_id} visible motivo={checkin.motivo}
+      creadaEn={checkin.creada_en} desde={checkin.presentada_en} enviando={respondiendoCheckin}
+      onPresentado={() => void presentarCheckin(checkin.checkin_id)}
+      onEstoyBien={() => responder("estoy_bien")} onNecesitoAyuda={() => responder("necesito_ayuda")} />;
+  }
+
+  if (
+    recuperando ||
+    ((verificando || cargando) && !mapaIniciado)
+  ) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#1ABC9C" size="large" />
@@ -304,7 +352,7 @@ export default function RecorridoActivoScreen() {
     );
   }
 
-  if (!mapaIniciado || !ubicacion) {
+  if (!mapaIniciado || !ubicacion || !destino) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#1ABC9C" size="large" />
@@ -313,8 +361,6 @@ export default function RecorridoActivoScreen() {
     );
   }
 
-  const centroInicial = ubicacion ?? CENTRO_BUENAVENTURA;
-
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -322,8 +368,8 @@ export default function RecorridoActivoScreen() {
       <MapaMapbox
         zonas={zonas}
         ruta={ruta}
-        destino={DESTINO_PRUEBA}
-        centroInicial={centroInicial}
+        destino={destino}
+        centroInicial={ubicacion}
       />
 
       <View style={[styles.topCard, { top: insets.top + 12 }]}>
@@ -331,7 +377,7 @@ export default function RecorridoActivoScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Volver"
-            onPress={() => router.back()}
+            onPress={confirmarSalida}
             style={({ pressed }) => [
               styles.backButton,
               pressed && { opacity: 0.75 },
@@ -346,7 +392,7 @@ export default function RecorridoActivoScreen() {
 
           <View style={styles.topInfo}>
             <Text style={styles.eta}>{eta}</Text>
-            <Text style={styles.destino}>Hacia {DESTINO_PRUEBA.nombre}</Text>
+            <Text style={styles.destino}>Hacia {destino.nombre}</Text>
 
             <Text style={styles.recorridoText}>
               Recorrido real: {formatearDistancia(distanciaRecorridaM)}
@@ -371,6 +417,16 @@ export default function RecorridoActivoScreen() {
 
             {ultimoError ? (
               <Text style={styles.approximateText}>{ultimoError}</Text>
+            ) : null}
+
+            {pendientesOffline > 0 ? (
+              <Text style={styles.approximateText}>
+                {pendientesOffline} evento(s) esperando señal
+              </Text>
+            ) : null}
+
+            {avisoSegundoPlano ? (
+              <Text style={styles.approximateText}>{avisoSegundoPlano}</Text>
             ) : null}
           </View>
         </View>
@@ -432,12 +488,7 @@ export default function RecorridoActivoScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Emergencia"
-            onPress={() =>
-              Alert.alert(
-                "Emergencia",
-                "La alerta SOS estará disponible en la Fase 3.",
-              )
-            }
+            onPress={() => router.push("/recorrido/sos")}
             style={({ pressed }) => [
               styles.emergencyButton,
               pressed && { opacity: 0.85 },
@@ -476,6 +527,8 @@ export default function RecorridoActivoScreen() {
           </Pressable>
         </View>
       </View>
+
+
     </View>
   );
 }

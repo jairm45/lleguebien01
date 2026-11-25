@@ -147,7 +147,7 @@ export default function LlegadaScreen() {
           <View style={[styles.infoRow, styles.infoRowLast]}>
             <Text style={styles.infoLabel}>Destino</Text>
             <Text style={styles.infoValue}>
-              {resumen.destino_nombre ?? "Universidad del Pacífico"}
+              {resumen.destino_nombre ?? "Destino no registrado"}
             </Text>
           </View>
         </View>

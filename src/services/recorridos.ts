@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Feature, LineString } from "geojson";
 
 import type { Coordenada } from "../lib/recorrido";
@@ -8,6 +9,11 @@ export type EstadoRecorrido =
   | "finalizado"
   | "cancelado"
   | "emergencia";
+
+export type MotivoCheckin =
+  | "sin_senal"
+  | "retraso_eta"
+  | "parada_zona_riesgo";
 
 export type RecorridoActivo = {
   id: string;
@@ -22,6 +28,9 @@ export type RecorridoActivo = {
   distancia_metros: number | null;
   duracion_segundos: number | null;
   iniciado_en: string;
+  eta_estimado_en: string | null;
+  ultima_ubicacion_en: string | null;
+  parada_riesgo_desde: string | null;
 };
 
 export type ZonaRiesgoActiva = {
@@ -36,6 +45,7 @@ export type ResultadoUbicacion = {
   distancia_acumulada_metros: number;
   en_zona_riesgo: boolean;
   zonas_riesgo_activas: ZonaRiesgoActiva[];
+  parada_riesgo?: boolean;
 };
 
 export type ResumenRecorrido = {
@@ -53,12 +63,15 @@ type CrearRecorridoInput = {
   destino: Coordenada;
   destinoNombre: string;
   ruta?: Feature<LineString> | null;
+  duracionEstimadaSegundos?: number | null;
 };
 
 type OpcionesUbicacion = {
   precision?: number | null;
   velocidad?: number | null;
   heading?: number | null;
+  capturedAt?: string | null;
+  clientEventId?: string | null;
 };
 
 async function obtenerUsuarioId(): Promise<string> {
@@ -73,20 +86,41 @@ async function obtenerUsuarioId(): Promise<string> {
   return user.id;
 }
 
+const CLAVE_ACTIVO = "lleguebien:recorridoVerificado";
+export type RecorridoVerificado = Pick<RecorridoActivo, "id" | "id_usuario" | "destino_lat" | "destino_lng" | "destino_nombre">;
+
+export async function leerRecorridoVerificado(usuarioId: string): Promise<RecorridoVerificado | null> {
+  const texto = await AsyncStorage.getItem(CLAVE_ACTIVO);
+  if (!texto) return null;
+  const activo: RecorridoVerificado = JSON.parse(texto);
+  return activo.id_usuario === usuarioId ? activo : null;
+}
+
+export function olvidarRecorridoVerificado() {
+  return AsyncStorage.removeItem(CLAVE_ACTIVO);
+}
+
+async function recordarRecorrido(activo: RecorridoVerificado | null) {
+  if (!activo) return olvidarRecorridoVerificado();
+  const { id, id_usuario, destino_lat, destino_lng, destino_nombre } = activo;
+  await AsyncStorage.setItem(CLAVE_ACTIVO, JSON.stringify({ id, id_usuario, destino_lat, destino_lng, destino_nombre }));
+}
+
 export async function obtenerRecorridoActivo(): Promise<RecorridoActivo | null> {
   const {
-    data: { user },
+    data: { user }, error: errorUsuario,
   } = await supabase.auth.getUser();
 
+  if (errorUsuario) throw errorUsuario;
   if (!user) return null;
 
   const { data, error } = await supabase
     .from("recorridos")
     .select(
-      "id, id_usuario, estado, destino_nombre, origen_lat, origen_lng, destino_lat, destino_lng, ruta_geojson, distancia_metros, duracion_segundos, iniciado_en",
+      "id, id_usuario, estado, destino_nombre, origen_lat, origen_lng, destino_lat, destino_lng, ruta_geojson, distancia_metros, duracion_segundos, iniciado_en, eta_estimado_en, ultima_ubicacion_en, parada_riesgo_desde",
     )
     .eq("id_usuario", user.id)
-    .eq("estado", "activo")
+    .in("estado", ["activo", "emergencia"])
     .order("iniciado_en", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -95,6 +129,7 @@ export async function obtenerRecorridoActivo(): Promise<RecorridoActivo | null> 
     throw new Error(`No se pudo consultar el recorrido activo: ${error.message}`);
   }
 
+  await recordarRecorrido(data).catch(() => undefined);
   return (data as RecorridoActivo | null) ?? null;
 }
 
@@ -103,12 +138,18 @@ export async function crearRecorrido({
   destino,
   destinoNombre,
   ruta = null,
+  duracionEstimadaSegundos = null,
 }: CrearRecorridoInput): Promise<string> {
   // Evita recorridos duplicados si la app se reabre o se pierde la navegación.
   const activo = await obtenerRecorridoActivo();
   if (activo) return activo.id;
 
   const idUsuario = await obtenerUsuarioId();
+
+  const etaEstimadoEn =
+    duracionEstimadaSegundos && duracionEstimadaSegundos > 0
+      ? new Date(Date.now() + duracionEstimadaSegundos * 1000).toISOString()
+      : null;
 
   const { data, error } = await supabase
     .from("recorridos")
@@ -121,6 +162,7 @@ export async function crearRecorrido({
       destino_lng: destino.longitude,
       destino_nombre: destinoNombre,
       ruta_geojson: ruta,
+      eta_estimado_en: etaEstimadoEn,
     })
     .select("id")
     .single();
@@ -129,7 +171,9 @@ export async function crearRecorrido({
     throw new Error(`No se pudo crear el recorrido: ${error.message}`);
   }
 
-  return (data as { id: string }).id;
+  await recordarRecorrido({ id: data.id, id_usuario: idUsuario, destino_lat: destino.latitude,
+    destino_lng: destino.longitude, destino_nombre: destinoNombre }).catch(() => undefined);
+  return data.id;
 }
 
 export async function registrarUbicacionRecorrido(
@@ -144,6 +188,8 @@ export async function registrarUbicacionRecorrido(
     p_precision_m: opciones.precision ?? null,
     p_velocidad_mps: opciones.velocidad ?? null,
     p_heading: opciones.heading ?? null,
+    p_captured_at: opciones.capturedAt ?? null,
+    p_client_event_id: opciones.clientEventId ?? null,
   });
 
   if (error) {
