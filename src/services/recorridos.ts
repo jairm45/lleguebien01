@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Feature, LineString } from "geojson";
 
+import type { Alerta } from "./emergencias";
 import type { Coordenada } from "../lib/recorrido";
 import { supabase } from "./supabase";
 
@@ -87,26 +88,54 @@ async function obtenerUsuarioId(): Promise<string> {
 }
 
 const CLAVE_ACTIVO = "lleguebien:recorridoVerificado";
-export type RecorridoVerificado = Pick<RecorridoActivo, "id" | "id_usuario" | "destino_lat" | "destino_lng" | "destino_nombre">;
+const CLAVE_ALERTA = "lleguebien:alertaDelRecorrido";
+let revisionActivo = 0;
+export type RecorridoVerificado = Pick<RecorridoActivo, "estado" | "id" | "id_usuario" | "destino_lat" | "destino_lng" | "destino_nombre">;
 
 export async function leerRecorridoVerificado(usuarioId: string): Promise<RecorridoVerificado | null> {
   const texto = await AsyncStorage.getItem(CLAVE_ACTIVO);
   if (!texto) return null;
   const activo: RecorridoVerificado = JSON.parse(texto);
-  return activo.id_usuario === usuarioId ? activo : null;
+  if (activo.id_usuario !== usuarioId) return null;
+  // Antes de guardar el estado, esta caché solo contenía recorridos abiertos.
+  return { ...activo, estado: activo.estado ?? "activo" };
 }
 
-export function olvidarRecorridoVerificado() {
-  return AsyncStorage.removeItem(CLAVE_ACTIVO);
+export async function leerAlertaLocal(recorridoId: string): Promise<Alerta | null> {
+  const texto = await AsyncStorage.getItem(CLAVE_ALERTA);
+  const alerta: Alerta | null = texto ? JSON.parse(texto) : null;
+  return alerta?.id_recorrido === recorridoId ? alerta : null;
+}
+
+export function guardarAlertaLocal(alerta: Alerta | null) {
+  return alerta ? AsyncStorage.setItem(CLAVE_ALERTA, JSON.stringify(alerta)) : AsyncStorage.removeItem(CLAVE_ALERTA);
+}
+
+const oyentes = new Set<() => void>();
+export function observarRecorridoVerificado(oyente: () => void) {
+  oyentes.add(oyente);
+  return () => { oyentes.delete(oyente); };
+}
+
+export async function olvidarRecorridoVerificado() {
+  revisionActivo++;
+  await recordarRecorrido(null);
 }
 
 async function recordarRecorrido(activo: RecorridoVerificado | null) {
-  if (!activo) return olvidarRecorridoVerificado();
-  const { id, id_usuario, destino_lat, destino_lng, destino_nombre } = activo;
-  await AsyncStorage.setItem(CLAVE_ACTIVO, JSON.stringify({ id, id_usuario, destino_lat, destino_lng, destino_nombre }));
+  if (activo) {
+    const { id, estado, id_usuario, destino_lat, destino_lng, destino_nombre } = activo;
+    await AsyncStorage.setItem(CLAVE_ACTIVO, JSON.stringify({
+      id, estado, id_usuario, destino_lat, destino_lng, destino_nombre,
+    }));
+  } else {
+    await AsyncStorage.multiRemove([CLAVE_ACTIVO, CLAVE_ALERTA]);
+  }
+  oyentes.forEach(oyente => oyente());
 }
 
 export async function obtenerRecorridoActivo(): Promise<RecorridoActivo | null> {
+  const revision = revisionActivo;
   const {
     data: { user }, error: errorUsuario,
   } = await supabase.auth.getUser();
@@ -129,6 +158,8 @@ export async function obtenerRecorridoActivo(): Promise<RecorridoActivo | null> 
     throw new Error(`No se pudo consultar el recorrido activo: ${error.message}`);
   }
 
+  // Una creación o un cierre local pudo completarse mientras respondía Supabase.
+  if (revision !== revisionActivo) return obtenerRecorridoActivo();
   await recordarRecorrido(data).catch(() => undefined);
   return (data as RecorridoActivo | null) ?? null;
 }
@@ -171,7 +202,8 @@ export async function crearRecorrido({
     throw new Error(`No se pudo crear el recorrido: ${error.message}`);
   }
 
-  await recordarRecorrido({ id: data.id, id_usuario: idUsuario, destino_lat: destino.latitude,
+  revisionActivo++;
+  await recordarRecorrido({ id: data.id, estado: "activo", id_usuario: idUsuario, destino_lat: destino.latitude,
     destino_lng: destino.longitude, destino_nombre: destinoNombre }).catch(() => undefined);
   return data.id;
 }

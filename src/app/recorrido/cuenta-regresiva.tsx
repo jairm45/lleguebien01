@@ -69,7 +69,7 @@ export default function CuentaRegresivaScreen() {
         "No se pudo activar la emergencia",
         error instanceof Error ? error.message : "Inténtalo de nuevo.",
       );
-      router.back();
+      router.dismissTo("/recorrido");
     }
   }, [detenerVibracion, iniciarEmergencia, modoSilencioso]);
 
@@ -122,7 +122,7 @@ export default function CuentaRegresivaScreen() {
   const cancelar = () => {
     disparadoRef.current = true;
     detenerVibracion();
-    router.back();
+    router.dismissTo("/recorrido");
   };
 
   return (

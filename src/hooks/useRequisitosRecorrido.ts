@@ -42,10 +42,10 @@ export function useRequisitosRecorrido({
       let red = false;
       let solicitable = false;
 
-      const [servicios, permiso, conectividad] = await Promise.all([
+      const conectividad = hayConectividad().catch(() => false);
+      const [servicios, permiso] = await Promise.all([
         Location.hasServicesEnabledAsync().catch(() => false),
         Location.getForegroundPermissionsAsync().catch(() => null),
-        hayConectividad(),
       ]);
 
       let proveedor: Awaited<
@@ -65,7 +65,8 @@ export function useRequisitosRecorrido({
       solicitable = Boolean(
         permiso && !permisos && permiso.canAskAgain,
       );
-      red = conectividad;
+      setEstado(anterior => ({ ...anterior, gps, permisos }));
+      red = await conectividad;
 
       const siguiente: RequisitosRecorrido = { gps, permisos, red };
       setEstado(siguiente);

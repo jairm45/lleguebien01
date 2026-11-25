@@ -66,3 +66,9 @@ export function formatearDuracion(segundos: number): string {
   const minutos = Math.max(1, Math.round(segundos / 60));
   return `${minutos} min`;
 }
+
+export type PosicionRecorrido = Coordenada & {
+  heading: number | null;
+  precisionM: number | null;
+  capturedAt: number;
+};

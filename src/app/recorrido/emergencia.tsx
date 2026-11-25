@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRecorrido } from "../../context/RecorridoContext";
+import { avisarSalidaBloqueada } from "../../hooks/useGuardiaRecorrido";
 import { useAlarmaEmergencia } from "../../hooks/useAlarmaEmergencia";
 import { formatearDistancia } from "../../lib/recorrido";
 import { styles } from "../../styles/EmergenciaStyles";
@@ -30,8 +31,10 @@ function formatearHora(iso: string): string {
 
 export default function EmergenciaActivaScreen() {
   const insets = useSafeAreaInsets();
+  const enfocado = useIsFocused();
   const {
     recuperando,
+    recorridoId,
     alertaActiva,
     modoAlarma,
     ubicacionActual,
@@ -58,15 +61,18 @@ export default function EmergenciaActivaScreen() {
   useAlarmaEmergencia(alarmaActiva, modo);
 
   useEffect(() => {
-    if (!alertaActiva && !emergenciaTerminada) return;
+    if (!enfocado || (!recorridoId && !recuperando)) return;
 
     const suscripcion = BackHandler.addEventListener(
       "hardwareBackPress",
-      () => true,
+      () => {
+        avisarSalidaBloqueada();
+        return true;
+      },
     );
 
     return () => suscripcion.remove();
-  }, [alertaActiva, emergenciaTerminada]);
+  }, [enfocado, recorridoId, recuperando]);
 
   const terminar = async () => {
     if (terminando) return;
@@ -86,12 +92,7 @@ export default function EmergenciaActivaScreen() {
     setFinalizando(true);
 
     try {
-      const resumen = await finalizarRecorridoActual();
-
-      router.replace({
-        pathname: "/recorrido/llegada",
-        params: { resumen: JSON.stringify(resumen) },
-      });
+      await finalizarRecorridoActual();
     } catch (error) {
       setFinalizando(false);
       Alert.alert(
