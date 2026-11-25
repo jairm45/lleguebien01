@@ -248,7 +248,7 @@ export default function IniciarRecorrido() {
 
       const ruta = await obtenerRutaPeatonal(origen, puntoB);
 
-      const recorridoId = await crearRecorrido({
+      await crearRecorrido({
         origen,
         destino: puntoB,
         destinoNombre: destinoSeleccionado.nombre,
@@ -256,15 +256,7 @@ export default function IniciarRecorrido() {
         duracionEstimadaSegundos: ruta?.duracionSegundos ?? null,
       });
 
-      router.push({
-        pathname: "/recorrido",
-        params: {
-          recorridoId,
-          destinoNombre: destinoSeleccionado.nombre,
-          destinoLat: String(destinoSeleccionado.lat),
-          destinoLng: String(destinoSeleccionado.lng),
-        },
-      });
+      router.replace("/recorrido");
     } catch (error) {
       Alert.alert(
         "No se pudo iniciar el recorrido",

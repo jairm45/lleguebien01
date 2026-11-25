@@ -1,3 +1,4 @@
+import type { PosicionRecorrido } from "../lib/recorrido";
 import * as Network from "expo-network";
 import * as SQLite from "expo-sqlite";
 import { AppState } from "react-native";
@@ -91,11 +92,22 @@ export async function obtenerDb(): Promise<SQLite.SQLiteDatabase> {
             creada_en integer not null
           );
 
+          create table if not exists ultima_posicion_fondo (
+            id integer primary key check (id=1), recorrido_id text not null,
+            captured_at integer not null, posicion text not null
+          );
+
           create table if not exists estado_recorrido_local (
             id integer primary key check (id = 1),
             recorrido_id text,
             actualizado_en text not null
           );
+
+          create trigger if not exists borrar_posicion_fondo
+          after delete on estado_recorrido_local
+          begin
+            delete from ultima_posicion_fondo where recorrido_id = old.recorrido_id;
+          end;
         `);
         return db;
       })
@@ -212,6 +224,25 @@ export async function obtenerRecorridoActivoLocal(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+export async function guardarPosicionFondo(id: string, punto: PosicionRecorrido) {
+  const db = await obtenerDb();
+  await db.runAsync(
+    `insert into ultima_posicion_fondo select 1,?,?,?
+     where exists(select 1 from estado_recorrido_local where recorrido_id=?)
+     on conflict(id) do update set recorrido_id=excluded.recorrido_id,
+       captured_at=excluded.captured_at,posicion=excluded.posicion
+     where recorrido_id<>excluded.recorrido_id or captured_at<excluded.captured_at`,
+    id, punto.capturedAt, JSON.stringify(punto), id,
+  );
+}
+
+export async function leerPosicionFondo(id: string): Promise<PosicionRecorrido | null> {
+  const db = await obtenerDb();
+  const fila = await db.getFirstAsync<{ posicion: string }>(
+    "select posicion from ultima_posicion_fondo where recorrido_id=?", id);
+  return fila ? JSON.parse(fila.posicion) : null;
 }
 
 export async function limpiarRecorridoActivoLocal(): Promise<void> {

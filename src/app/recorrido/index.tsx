@@ -1,5 +1,4 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import * as Location from "expo-location";
 import { router, useIsFocused, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import type { Feature, LineString } from "geojson";
@@ -14,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { avisarSalidaBloqueada } from "../../hooks/useGuardiaRecorrido";
 import { completarIntencion, siguienteIntencion } from "../../services/intencionesNotificacion";
 import { MapaMapbox } from "../../components/recorrido/MapaMapbox";
 import { ModalCheckinSeguridad } from "../../components/recorrido/ModalCheckinSeguridad";
@@ -21,8 +21,6 @@ import { RequisitosRecorrido } from "../../components/recorrido/RequisitosRecorr
 import { useRecorrido } from "../../context/RecorridoContext";
 import { useDetectorSacudidas } from "../../hooks/useDetectorSacudidas";
 import {
-  CENTRO_BUENAVENTURA,
-  conTimeout,
   distanciaHaversineMetros,
   estimarDuracionSegundos,
   formatearDistancia,
@@ -48,9 +46,10 @@ export default function RecorridoActivoScreen() {
     recorridoId,
     destino,
     recuperando,
+    red,
     requisitosOk,
     faltantes,
-    verificando,
+    ubicacionActual,
     puedeSolicitarPermiso,
     revalidar,
     solicitarPermiso,
@@ -71,17 +70,25 @@ export default function RecorridoActivoScreen() {
     finalizarRecorridoActual,
   } = useRecorrido();
 
-  const [ubicacion, setUbicacion] = useState<Coordenada | null>(null);
+  const [seguirUsuario, setSeguirUsuario] = useState(true);
+  const [origen, setOrigen] = useState<Coordenada | null>(null);
+  const [rastro, setRastro] = useState<number[][]>([]);
+  useEffect(() => {
+    if (!ubicacionActual) return;
+    const { longitude, latitude } = ubicacionActual;
+    setRastro(anterior => {
+      const ultimo = anterior[anterior.length - 1];
+      if (ultimo?.[0] === longitude && ultimo[1] === latitude) return anterior;
+      return [...anterior.slice(-399), [longitude, latitude]];
+    });
+  }, [ubicacionActual]);
+
   const [zonas, setZonas] = useState<ZonasRiesgo>(ZONAS_VACIAS);
   const [ruta, setRuta] = useState<Feature<LineString> | null>(null);
   const [distanciaMetros, setDistanciaMetros] = useState(0);
   const [duracionSegundos, setDuracionSegundos] = useState(0);
   const [rutaAproximada, setRutaAproximada] = useState(false);
   const [errorZonas, setErrorZonas] = useState(false);
-  const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [mapaIniciado, setMapaIniciado] = useState(false);
-  const [intentoCarga, setIntentoCarga] = useState(0);
   const [finalizando, setFinalizando] = useState(false);
 
   const accion = useLocalSearchParams<{ recorridoId?: string; ayudaCheckin?: string; intencion?: string }>();
@@ -119,10 +126,10 @@ export default function RecorridoActivoScreen() {
   });
 
   useEffect(() => {
-    if (!finalizando && !recuperando && (!recorridoId || !destino)) {
+    if (enfocado && !finalizando && !recuperando && !recorridoId) {
       router.replace("/iniciar-recorrido");
     }
-  }, [destino, finalizando, recorridoId, recuperando]);
+  }, [enfocado, finalizando, recorridoId, recuperando]);
 
   useEffect(() => {
     if (enfocado && alertaActiva && !accion.ayudaCheckin) {
@@ -131,99 +138,56 @@ export default function RecorridoActivoScreen() {
   }, [accion.ayudaCheckin, alertaActiva, enfocado]);
 
   useEffect(() => {
-    if (!requisitosOk || !recorridoId || !destino) {
-      setCargando(false);
-      return;
-    }
+    if (ubicacionActual && !origen) setOrigen(ubicacionActual);
+  }, [ubicacionActual, origen]);
 
+  useEffect(() => {
+    if (!origen || !destino || !recorridoId || !requisitosOk) return;
     let cancelado = false;
-
     const cargarRecorrido = async () => {
-      setCargando(true);
-      setError(null);
+      const [resultadoZonas, resultadoRuta] = await Promise.allSettled([
+        obtenerZonasRiesgo(),
+        obtenerRutaPeatonal(origen, destino),
+      ]);
 
-      try {
-        const ultimaUbicacion = await Location.getLastKnownPositionAsync({
-          maxAge: 60000,
-          requiredAccuracy: 100,
-        }).catch(() => null);
+      if (cancelado) return;
 
-        const posicion =
-          ultimaUbicacion ??
-          (await conTimeout(
-            Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.High,
-            }),
-            12000,
-            "No se pudo obtener una ubicación GPS precisa.",
-          ));
+      if (resultadoZonas.status === "fulfilled") {
+        setZonas(resultadoZonas.value);
+        setErrorZonas(false);
+      } else {
+        setZonas(ZONAS_VACIAS);
+        setErrorZonas(true);
+      }
 
-        if (cancelado) return;
+      if (resultadoRuta.status === "fulfilled" && resultadoRuta.value) {
+        setRuta(resultadoRuta.value.feature);
+        setDistanciaMetros(resultadoRuta.value.distanciaMetros);
+        setDuracionSegundos(resultadoRuta.value.duracionSegundos);
+        setRutaAproximada(false);
+      } else {
+        const distancia = distanciaHaversineMetros(origen, destino);
 
-        const origen: Coordenada = {
-          latitude: posicion.coords.latitude,
-          longitude: posicion.coords.longitude,
-        };
-
-        setUbicacion(origen);
-
-        const [resultadoZonas, resultadoRuta] = await Promise.allSettled([
-          obtenerZonasRiesgo(),
-          obtenerRutaPeatonal(origen, destino),
-        ]);
-
-        if (cancelado) return;
-
-        if (resultadoZonas.status === "fulfilled") {
-          setZonas(resultadoZonas.value);
-          setErrorZonas(false);
-        } else {
-          setZonas(ZONAS_VACIAS);
-          setErrorZonas(true);
-        }
-
-        if (resultadoRuta.status === "fulfilled" && resultadoRuta.value) {
-          setRuta(resultadoRuta.value.feature);
-          setDistanciaMetros(resultadoRuta.value.distanciaMetros);
-          setDuracionSegundos(resultadoRuta.value.duracionSegundos);
-          setRutaAproximada(false);
-        } else {
-          const distancia = distanciaHaversineMetros(origen, destino);
-
-          setRuta({
-            type: "Feature",
-            geometry: {
-              type: "LineString",
-              coordinates: [
-                [origen.longitude, origen.latitude],
-                [destino.longitude, destino.latitude],
-              ],
-            },
-            properties: {},
-          });
-          setDistanciaMetros(distancia);
-          setDuracionSegundos(estimarDuracionSegundos(distancia));
-          setRutaAproximada(true);
-        }
-
-        setMapaIniciado(true);
-      } catch {
-        if (!cancelado) {
-          setError(
-            "No pudimos obtener tu ubicación actual. Verifica que el GPS esté encendido e inténtalo de nuevo.",
-          );
-        }
-      } finally {
-        if (!cancelado) setCargando(false);
+        setRuta({
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [origen.longitude, origen.latitude],
+              [destino.longitude, destino.latitude],
+            ],
+          },
+          properties: {},
+        });
+        setDistanciaMetros(distancia);
+        setDuracionSegundos(estimarDuracionSegundos(distancia));
+        setRutaAproximada(true);
       }
     };
 
     void cargarRecorrido();
-
-    return () => {
-      cancelado = true;
-    };
-  }, [destino, intentoCarga, recorridoId, requisitosOk]);
+    return () => { cancelado = true; };
+  }, [destino, origen, recorridoId, requisitosOk]);
 
   const eta = useMemo(
     () =>
@@ -236,24 +200,13 @@ export default function RecorridoActivoScreen() {
     (enZonaRiesgo && zonaPrincipal) || !requisitosOk,
   );
 
-  const reintentarCarga = () => {
-    setError(null);
-    setIntentoCarga((valor) => valor + 1);
-    void revalidar();
-  };
-
   const manejarLlegada = async () => {
     if (!recorridoId || finalizando) return;
 
     setFinalizando(true);
 
     try {
-      const resumen = await finalizarRecorridoActual();
-
-      router.replace({
-        pathname: "/recorrido/llegada",
-        params: { resumen: JSON.stringify(resumen) },
-      });
+      await finalizarRecorridoActual();
     } catch (errorFinalizacion) {
       setFinalizando(false);
 
@@ -266,39 +219,14 @@ export default function RecorridoActivoScreen() {
     }
   };
 
-  // Salir de E10 sin finalizar dejaría el recorrido abierto y sin GPS.
-  const confirmarSalida = () => {
-    Alert.alert(
-      "¿Finalizar el recorrido?",
-      "Dejarás de compartir tu ubicación con tus seguidores.",
-      [
-        { text: "Seguir aquí", style: "cancel" },
-        {
-          text: "Finalizar",
-          style: "destructive",
-          onPress: () => void manejarLlegada(),
-        },
-      ],
-    );
-  };
-
-  const salidaRef = useRef(confirmarSalida);
-
   useEffect(() => {
-    salidaRef.current = confirmarSalida;
-  });
-
-  useEffect(() => {
-    const suscripcion = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        salidaRef.current();
-        return true;
-      },
-    );
-
+    if (!enfocado || (!recorridoId && !recuperando)) return;
+    const suscripcion = BackHandler.addEventListener("hardwareBackPress", () => {
+      avisarSalidaBloqueada();
+      return true;
+    });
     return () => suscripcion.remove();
-  }, []);
+  }, [enfocado, recorridoId, recuperando]);
 
   if (enfocado && checkin && checkin.recorrido_id === recorridoId && !alertaActiva) {
     const responder = (respuesta: "estoy_bien" | "necesito_ayuda") => {
@@ -311,48 +239,7 @@ export default function RecorridoActivoScreen() {
       onEstoyBien={() => responder("estoy_bien")} onNecesitoAyuda={() => responder("necesito_ayuda")} />;
   }
 
-  if (
-    recuperando ||
-    ((verificando || cargando) && !mapaIniciado)
-  ) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#1ABC9C" size="large" />
-        <Text style={styles.loadingText}>
-          Verificando GPS, permisos, conexión y recorrido...
-        </Text>
-      </View>
-    );
-  }
-
-  if (!requisitosOk && !mapaIniciado) {
-    return (
-      <RequisitosRecorrido
-        variante="bloqueo"
-        faltantes={faltantes}
-        verificando={verificando}
-        puedeSolicitarPermiso={puedeSolicitarPermiso}
-        onReintentar={() => void revalidar()}
-        onAbrirAjustes={() => void abrirAjustes()}
-        onSolicitarPermiso={() => void solicitarPermiso()}
-      />
-    );
-  }
-
-  if (error && !mapaIniciado) {
-    return (
-      <RequisitosRecorrido
-        variante="bloqueo"
-        titulo="No pudimos obtener tu ubicación"
-        faltantes={[error]}
-        verificando={verificando}
-        onReintentar={reintentarCarga}
-        onAbrirAjustes={() => void abrirAjustes()}
-      />
-    );
-  }
-
-  if (!mapaIniciado || !ubicacion || !destino) {
+  if (recuperando || !destino) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#1ABC9C" size="large" />
@@ -366,32 +253,21 @@ export default function RecorridoActivoScreen() {
       <StatusBar style="dark" />
 
       <MapaMapbox
+        red={red}
         zonas={zonas}
         ruta={ruta}
+        rastro={rastro}
         destino={destino}
-        centroInicial={ubicacion}
+        centroInicial={ubicacionActual ?? destino}
+        ubicacionActual={ubicacionActual}
+        seguirUsuario={seguirUsuario}
+        onMoverMapa={() => setSeguirUsuario(false)}
       />
 
       <View style={[styles.topCard, { top: insets.top + 12 }]}>
         <View style={styles.topRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Volver"
-            onPress={confirmarSalida}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && { opacity: 0.75 },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={24}
-              color="#1A1E3C"
-            />
-          </Pressable>
-
           <View style={styles.topInfo}>
-            <Text style={styles.eta}>{eta}</Text>
+            <Text style={styles.eta}>{duracionSegundos ? eta : "Recorrido en curso"}</Text>
             <Text style={styles.destino}>Hacia {destino.nombre}</Text>
 
             <Text style={styles.recorridoText}>
@@ -400,7 +276,7 @@ export default function RecorridoActivoScreen() {
 
             <View style={styles.liveRow}>
               <View style={styles.liveDot} />
-              <Text style={styles.liveText}>compartiendo en vivo</Text>
+              <Text style={styles.liveText}>{ubicacionActual ? "Ubicación GPS" : "Buscando señal GPS…"}</Text>
             </View>
 
             {rutaAproximada ? (
@@ -468,6 +344,12 @@ export default function RecorridoActivoScreen() {
         </View>
       ) : null}
 
+      {!seguirUsuario && ubicacionActual && (
+        <Pressable accessibilityRole="button" style={[styles.recentrar, { bottom: insets.bottom + 195 }]}
+          onPress={() => setSeguirUsuario(true)}>
+          <Text style={styles.buttonText}>Recentrar</Text>
+        </Pressable>
+      )}
       <View style={[styles.bottomPanel, { bottom: insets.bottom + 12 }]}>
         <View style={styles.bottomRow}>
           <View style={styles.liveBadge}>
@@ -475,13 +357,12 @@ export default function RecorridoActivoScreen() {
             <Text style={styles.liveBadgeText}>En vivo</Text>
           </View>
           <Text style={styles.bottomText}>
-            {enviando ? "Sincronizando ubicación..." : "Compartiendo ubicación"}
+            {!red ? "Sin conexión al servidor" : !requisitosOk ? "Esperando GPS o permiso" : enviando ? "Sincronizando ubicación..." : "Compartiendo ubicación"}
           </Text>
         </View>
 
         <Text style={styles.bottomText}>
-          Tu recorrido se actualiza cada 5 segundos mientras la app está
-          abierta.
+          El GPS actualiza el mapa aunque no tengas internet.
         </Text>
 
         <View style={styles.actions}>

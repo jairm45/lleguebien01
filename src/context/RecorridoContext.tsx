@@ -4,7 +4,6 @@ import {
 } from "expo-keep-awake";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { useGlobalSearchParams } from "expo-router";
 import * as TaskManager from "expo-task-manager";
 import {
   createContext,
@@ -20,7 +19,7 @@ import { AppState, Platform } from "react-native";
 
 import { useRequisitosRecorrido, type RequisitosRecorrido } from "../hooks/useRequisitosRecorrido";
 import { useUbicacionRecorrido } from "../hooks/useUbicacionRecorrido";
-import type { Coordenada } from "../lib/recorrido";
+import type { Coordenada, PosicionRecorrido } from "../lib/recorrido";
 import {
   activarEmergenciaRecorrido,
   invocarEnviarAlerta,
@@ -46,6 +45,7 @@ import {
   procesarColaOffline,
 } from "../services/colaOffline";
 import {
+  guardarAlertaLocal, leerAlertaLocal, leerRecorridoVerificado,
   finalizarRecorrido,
   obtenerRecorridoActivo,
   olvidarRecorridoVerificado,
@@ -59,6 +59,7 @@ import {
   ocultarAccesoRapidoRecorrido,
 } from "../services/notificacionesPush";
 import { supabase } from "../services/supabase";
+import { useSesion } from "./SesionContext";
 import { BACKGROUND_LOCATION_TASK } from "../tasks/backgroundLocationTask";
 
 const KEEP_AWAKE_TAG = "lleguebien-recorrido";
@@ -69,18 +70,13 @@ export type DestinoRecorrido = Coordenada & {
   nombre: string;
 };
 
-type ParamsRecorrido = {
-  recorridoId?: string | string[];
-  destinoNombre?: string | string[];
-  destinoLat?: string | string[];
-  destinoLng?: string | string[];
-};
-
 type EstadoRecorrido = {
   recorridoId: string | null;
   destino: DestinoRecorrido | null;
   recuperando: boolean;
+  resumenFinal: ResumenRecorrido | null;
 
+  red: boolean;
   requisitosOk: boolean;
   faltantes: string[];
   verificando: boolean;
@@ -89,7 +85,7 @@ type EstadoRecorrido = {
   solicitarPermiso: () => Promise<boolean>;
   abrirAjustes: () => Promise<void>;
 
-  ubicacionActual: Coordenada | null;
+  ubicacionActual: PosicionRecorrido | null;
   distanciaRecorridaM: number;
   enZonaRiesgo: boolean;
   zonasRiesgoActuales: ZonaRiesgoActiva[];
@@ -120,42 +116,13 @@ type EstadoRecorrido = {
 
 const RecorridoContext = createContext<EstadoRecorrido | undefined>(undefined);
 
-function primerValor(valor: string | string[] | undefined): string | null {
-  if (Array.isArray(valor)) return valor[0] ?? null;
-  return valor ?? null;
-}
-
-function leerDestino(params: ParamsRecorrido): DestinoRecorrido | null {
-  const nombre = primerValor(params.destinoNombre);
-  const latTexto = primerValor(params.destinoLat);
-  const lngTexto = primerValor(params.destinoLng);
-
-  if (!nombre || !latTexto || !lngTexto) return null;
-
-  const latitude = Number(latTexto);
-  const longitude = Number(lngTexto);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  return { nombre, latitude, longitude };
-}
-
 export function RecorridoProvider({ children }: { children: ReactNode }) {
-  const params = useGlobalSearchParams<ParamsRecorrido>();
-  const recorridoIdParam = primerValor(params.recorridoId);
-  const destinoParam = leerDestino(params);
-
-  const [recorridoId, setRecorridoId] = useState<string | null>(
-    recorridoIdParam,
-  );
-  const [destino, setDestino] = useState<DestinoRecorrido | null>(
-    destinoParam,
-  );
-  const [recuperando, setRecuperando] = useState(
-    !recorridoIdParam || !destinoParam,
-  );
+  const { session } = useSesion();
+  const usuarioId = session?.user.id;
+  const [recorridoId, setRecorridoId] = useState<string | null>(null);
+  const [destino, setDestino] = useState<DestinoRecorrido | null>(null);
+  const [recuperando, setRecuperando] = useState(true);
+  const [resumenFinal, setResumenFinal] = useState<ResumenRecorrido | null>(null);
   const [cierreRemoto, setCierreRemoto] = useState<string | null>(null);
   const [trackingActivo, setTrackingActivo] = useState(true);
   const [alertaActiva, setAlertaActiva] = useState<Alerta | null>(null);
@@ -180,7 +147,7 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
   const respondiendoCheckinRef = useRef(false);
 
   const {
-    requisitosOk,
+    gps, permisos, red, requisitosOk,
     faltantes,
     verificando,
     puedeSolicitarPermiso,
@@ -198,7 +165,8 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
     ultimoError,
   } = useUbicacionRecorrido({
     recorridoId,
-    listo: requisitosOk && trackingActivo,
+    listo: gps && permisos && trackingActivo,
+    red,
   });
 
   const recargarPendientes = useCallback(async () => {
@@ -404,7 +372,17 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
 
     let activo = true;
 
-    obtenerAlertaActiva(recorridoId)
+    const recuperarAlerta = async () => {
+      const local = await leerAlertaLocal(recorridoId);
+      if (local && local.id_usuario === usuarioId && activo && !alertaActualRef.current &&
+          !cerradas.current.has(local.client_event_id ?? local.id)) {
+        alertaActualRef.current = local;
+        setAlertaActiva(local);
+        setModoAlarma(local.modo);
+      }
+      return obtenerAlertaActiva(recorridoId);
+    };
+    recuperarAlerta()
       .then((alerta) => {
         if (!activo || !alerta) return;
         alertaActualRef.current = alerta;
@@ -416,7 +394,7 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
     return () => {
       activo = false;
     };
-  }, [alertaActiva, recorridoId]);
+  }, [alertaActiva, recorridoId, usuarioId]);
 
   // Refresca la alerta provisional cuando la cola offline termina de sincronizar.
   useEffect(() => {
@@ -428,11 +406,16 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
       try {
         const actual = await obtenerAlertaActiva(recorridoId);
 
-        if (
-          !activo ||
-          !actual ||
-          noRecuperarAlertaRef.current
-        ) {
+        if (!activo || noRecuperarAlertaRef.current || alertaActualRef.current !== alertaActiva) return;
+        if (!actual) {
+          // Un ID provisional puede estar esperando su activación en SQLite.
+          if (alertaActiva.id !== alertaActiva.client_event_id) {
+            cerradas.current.add(alertaActiva.client_event_id ?? alertaActiva.id);
+            alertaActualRef.current = null;
+            setAlertaActiva(null);
+            setModoAlarma(null);
+            await guardarAlertaLocal(null).catch(console.warn);
+          }
           return;
         }
 
@@ -452,63 +435,34 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
     };
   }, [alertaActiva, recorridoId]);
 
-  // Recupera recorrido y alerta activos si se abrió la app sin parámetros.
+  // Recupera el recorrido del usuario incluso si la ruta llegó sin parámetros o por enlace.
   useEffect(() => {
-    if (!trackingActivo || (recorridoId && destino)) {
+    if (!usuarioId || !trackingActivo) {
       setRecuperando(false);
       return;
     }
 
-    let activo = true;
-
+    let vigente = true;
     const recuperar = async () => {
-      try {
-        const activoRecorrido = await obtenerRecorridoActivo();
+      const local = await leerRecorridoVerificado(usuarioId);
+      const recorrido = local ?? await obtenerRecorridoActivo();
+      if (!vigente || recorrido?.id_usuario !== usuarioId) return;
 
-        if (!activo) return;
-
-        if (!activoRecorrido) {
-          setRecuperando(false);
-          return;
-        }
-
-        setRecorridoId(activoRecorrido.id);
-
-        if (
-          activoRecorrido.destino_lat != null &&
-          activoRecorrido.destino_lng != null
-        ) {
-          setDestino({
-            nombre: activoRecorrido.destino_nombre ?? "Destino",
-            latitude: activoRecorrido.destino_lat,
-            longitude: activoRecorrido.destino_lng,
-          });
-        }
-
-        try {
-          const alerta = await obtenerAlertaActiva(activoRecorrido.id);
-
-          if (activo && alerta) {
-            setAlertaActiva(alerta);
-            alertaActualRef.current = alerta;
-            setModoAlarma(alerta.modo);
-          }
-        } catch {
-          // Sin alerta activa recuperable.
-        }
-      } catch {
-        // La pantalla mostrará el estado vacío.
-      } finally {
-        if (activo) setRecuperando(false);
+      setRecorridoId(recorrido.id);
+      if (recorrido.destino_lat != null && recorrido.destino_lng != null) {
+        setDestino({
+          nombre: recorrido.destino_nombre ?? "Destino",
+          latitude: recorrido.destino_lat,
+          longitude: recorrido.destino_lng,
+        });
       }
     };
 
-    void recuperar();
-
-    return () => {
-      activo = false;
-    };
-  }, [destino, recorridoId, trackingActivo]);
+    void recuperar().catch(console.warn).finally(() => {
+      if (vigente) setRecuperando(false);
+    });
+    return () => { vigente = false; };
+  }, [trackingActivo, usuarioId]);
 
   const detenerSegundoPlano = useCallback(async () => {
     await arranqueGps.current;
@@ -616,6 +570,10 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
     recorridoId,
     trackingActivo,
   ]);
+
+  useEffect(() => {
+    if (alertaActiva) void guardarAlertaLocal(alertaActiva).catch(console.warn);
+  }, [alertaActiva]);
 
   const iniciarEmergencia = useCallback(
     async (tipo: TipoAlerta, modo: ModoAlerta, evento?: string): Promise<Alerta> => {
@@ -770,6 +728,7 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
 
     if (!alerta || !recorridoId) return;
 
+    await guardarAlertaLocal(null).catch(console.warn);
     cerradas.current.add(alerta.client_event_id ?? alerta.id);
     alertaActualRef.current = null;
     noRecuperarAlertaRef.current = true;
@@ -824,7 +783,7 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
     await descartarUbicacionesPendientes(recorridoId);
 
     await limpiarRecorrido();
-
+    setResumenFinal(resumen);
     return resumen;
   }, [limpiarRecorrido, recorridoId]);
 
@@ -833,6 +792,8 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
       recorridoId,
       destino,
       recuperando,
+      resumenFinal,
+      red,
       requisitosOk,
       faltantes,
       verificando,
@@ -881,9 +842,11 @@ export function RecorridoProvider({ children }: { children: ReactNode }) {
       recargarPendientes,
       recorridoId,
       recuperando,
+      resumenFinal,
       responderCheckin,
       respondiendoCheckin,
       revalidar,
+      red,
       requisitosOk,
       sacudidasNecesarias,
       segundoPlanoActivo,

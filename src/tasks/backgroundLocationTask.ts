@@ -10,6 +10,7 @@ import {
   encolarEventoOffline,
   limpiarRecorridoActivoLocal,
   generarClientEventId,
+  guardarPosicionFondo,
   obtenerRecorridoActivoLocal,
 } from "../services/colaOffline";
 import { olvidarRecorridoVerificado, registrarUbicacionRecorrido } from "../services/recorridos";
@@ -32,6 +33,13 @@ TaskManager.defineTask<DatosTareaUbicacion>(
       await accesoRapido;
       return;
     }
+
+    const reciente = locations.reduce((a, b) => a.timestamp >= b.timestamp ? a : b);
+    await guardarPosicionFondo(recorridoId, {
+      latitude: reciente.coords.latitude, longitude: reciente.coords.longitude,
+      heading: reciente.coords.heading, precisionM: reciente.coords.accuracy,
+      capturedAt: reciente.timestamp,
+    }).catch(error => console.warn("No se pudo guardar la posición de fondo", error));
 
     for (const location of locations) {
       const clientEventId = generarClientEventId();

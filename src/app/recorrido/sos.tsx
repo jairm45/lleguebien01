@@ -277,7 +277,7 @@ export default function SosScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cancelar SOS"
-          onPress={() => router.back()}
+          onPress={() => router.dismissTo("/recorrido")}
           style={styles.cancelLink}
         >
           <Text style={styles.cancelLinkText}>Cancelar</Text>

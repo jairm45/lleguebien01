@@ -13,7 +13,7 @@ import { ACCION_ESTOY_BIEN, ACCION_NECESITO_AYUDA, ACCION_SOS_SILENCIOSO,
 import { leerRecorridoVerificado, obtenerRecorridoActivo } from "../services/recorridos";
 import { registrarTareaRecepcion } from "../tasks/backgroundLocationTask";
 
-export function useAccionesNotificacion() {
+export function useAccionesNotificacion(esperarRecorrido: boolean) {
   const { session, cargando } = useSesion();
   const navegador = useNavigationContainerRef();
   const ruta = usePathname();
@@ -43,7 +43,7 @@ export function useAccionesNotificacion() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === "web" || cargando || !usuarioId || !raiz) return;
+    if (Platform.OS === "web" || cargando || esperarRecorrido || !usuarioId || !raiz) return;
     let vigente = true;
     let ocupado = false;
     let enPantalla: { clave: string; hasta: number } | null = null;
@@ -114,5 +114,5 @@ export function useAccionesNotificacion() {
     void procesar();
     const intervalo = setInterval(procesar, 2000);
     return () => { vigente = false; clearInterval(intervalo); despertar.current = () => {}; };
-  }, [cargando, navegador, raiz, usuarioId]);
+  }, [cargando, esperarRecorrido, navegador, raiz, usuarioId]);
 }

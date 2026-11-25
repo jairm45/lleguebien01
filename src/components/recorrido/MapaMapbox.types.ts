@@ -1,11 +1,15 @@
 import type { Feature, FeatureCollection, Geometry, LineString } from "geojson";
 
-import type { Coordenada } from "../../lib/recorrido";
+import type { Coordenada, PosicionRecorrido } from "../../lib/recorrido";
 
 export type MapaMapboxProps = {
   zonas: FeatureCollection<Geometry>;
+  rastro: number[][];
   ruta: Feature<LineString> | null;
   destino: Coordenada & { nombre: string };
   centroInicial: Coordenada;
-  seguirUsuario?: boolean;
+  ubicacionActual: PosicionRecorrido | null;
+  red: boolean;
+  seguirUsuario: boolean;
+  onMoverMapa: () => void;
 };

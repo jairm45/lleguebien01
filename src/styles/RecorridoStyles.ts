@@ -27,13 +27,9 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F0F3FA",
-    alignItems: "center",
-    justifyContent: "center",
+  recentrar: {
+    position: "absolute", right: 16, backgroundColor: "#1A1E3C",
+    borderRadius: 18, paddingHorizontal: 16, paddingVertical: 10, zIndex: 21,
   },
   topInfo: {
     flex: 1,

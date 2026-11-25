@@ -6,8 +6,9 @@ import Mapbox, {
   MapView,
   PointAnnotation,
   ShapeSource,
-  UserLocation,
+  CircleLayer,
 } from "@rnmapbox/maps";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { styles } from "../../styles/RecorridoStyles";
@@ -15,15 +16,41 @@ import type { MapaMapboxProps } from "./MapaMapbox.types";
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 
+// Permite dibujar el GPS y el destino aunque Mapbox no tenga el estilo en caché.
+const ESTILO_LOCAL = JSON.stringify({
+  version: 8, sources: {},
+  layers: [{ id: "fondo", type: "background", paint: { "background-color": "#E8EFEF" } }],
+});
+
 void Mapbox.setAccessToken(MAPBOX_TOKEN || null);
 
 export function MapaMapbox({
   zonas,
   ruta,
+  rastro,
   destino,
   centroInicial,
-  seguirUsuario = true,
+  red,
+  seguirUsuario,
+  ubicacionActual,
+  onMoverMapa,
 }: MapaMapboxProps) {
+  const camara = useRef<Camera>(null);
+  const inicial = useRef({ centerCoordinate: [centroInicial.longitude, centroInicial.latitude], zoomLevel: 16 });
+  const [listo, setListo] = useState(false);
+  const [estiloLocal, setEstiloLocal] = useState(false);
+  useEffect(() => {
+    if (red) setEstiloLocal(false);
+  }, [red]);
+
+  useEffect(() => {
+    if (!listo || !seguirUsuario || !ubicacionActual) return;
+    camara.current?.setCamera({
+      centerCoordinate: [ubicacionActual.longitude, ubicacionActual.latitude],
+      animationMode: "easeTo", animationDuration: 650,
+    });
+  }, [listo, seguirUsuario, ubicacionActual]);
+
   if (!MAPBOX_TOKEN) {
     return (
       <View style={fallback.container}>
@@ -37,27 +64,18 @@ export function MapaMapbox({
   return (
     <MapView
       style={styles.map}
-      styleURL={Mapbox.StyleURL.Street}
+      onDidFinishLoadingStyle={() => setListo(true)}
+      onCameraChanged={evento => { if (seguirUsuario && evento.gestures.isGestureActive) onMoverMapa(); }}
+      onMapLoadingError={evento => {
+        if (evento?.type === "style") setEstiloLocal(true);
+      }}
+      styleURL={estiloLocal ? undefined : Mapbox.StyleURL.Street}
+      styleJSON={estiloLocal ? ESTILO_LOCAL : undefined}
       localizeLabels={{ locale: "es" }}
       logoPosition={{ bottom: 190, left: 12 }}
       attributionPosition={{ bottom: 190, right: 12 }}
     >
-      <Camera
-        defaultSettings={{
-          centerCoordinate: [centroInicial.longitude, centroInicial.latitude],
-          zoomLevel: 14,
-        }}
-        followUserLocation={seguirUsuario}
-        followZoomLevel={16}
-        animationDuration={800}
-      />
-
-      <UserLocation
-        visible
-        showsUserHeadingIndicator
-        androidRenderMode="compass"
-        minDisplacement={3}
-      />
+      <Camera ref={camara} defaultSettings={inicial.current} />
 
       {zonas.features.length > 0 ? (
         <ShapeSource id="zonas-riesgo" shape={zonas}>
@@ -89,6 +107,27 @@ export function MapaMapbox({
           />
         </ShapeSource>
       ) : null}
+
+      {rastro.length >= 2 && (
+        <ShapeSource id="rastro-local" shape={{ type: "LineString", coordinates: rastro }}>
+          <LineLayer id="linea-rastro" style={{ lineColor: "#087E74", lineWidth: 3 }} />
+        </ShapeSource>
+      )}
+
+      {ubicacionActual && (
+        <ShapeSource id="estudiante" shape={{ type: "Point", coordinates: [ubicacionActual.longitude, ubicacionActual.latitude] }}>
+          <CircleLayer id="precision-estudiante" style={{
+            circleColor: "#1ABC9C", circleOpacity: 0.22,
+            // Metros por píxel en Mercator para teselas de 512 px.
+            circleRadius: ["interpolate", ["exponential", 2], ["zoom"], 0, 0,
+              20, (ubicacionActual.precisionM ?? 0) * 1048576 /
+                (78271.52 * Math.cos(ubicacionActual.latitude * Math.PI / 180))],
+          }} />
+          <CircleLayer id="punto-estudiante" style={{
+            circleRadius: 7, circleColor: "#087E74", circleStrokeColor: "#FFFFFF", circleStrokeWidth: 2,
+          }} />
+        </ShapeSource>
+      )}
 
       <PointAnnotation
         id="destino-universidad"

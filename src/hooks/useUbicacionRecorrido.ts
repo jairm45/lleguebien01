@@ -1,10 +1,12 @@
 import * as Location from "expo-location";
 import { useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 
-import type { Coordenada } from "../lib/recorrido";
+import type { PosicionRecorrido } from "../lib/recorrido";
 import {
   encolarEventoOffline,
   generarClientEventId,
+  leerPosicionFondo,
 } from "../services/colaOffline";
 import {
   registrarUbicacionRecorrido,
@@ -15,15 +17,17 @@ import { hayConectividad } from "../services/red";
 type Opciones = {
   recorridoId: string | null;
   listo: boolean;
+  red: boolean;
   intervaloMs?: number;
 };
 
 export function useUbicacionRecorrido({
   recorridoId,
   listo,
+  red,
   intervaloMs = 5000,
 }: Opciones) {
-  const [ubicacionActual, setUbicacionActual] = useState<Coordenada | null>(
+  const [ubicacionActual, setUbicacionActual] = useState<PosicionRecorrido | null>(
     null,
   );
   const [distanciaRecorridaM, setDistanciaRecorridaM] = useState(0);
@@ -34,6 +38,10 @@ export function useUbicacionRecorrido({
   const [enviando, setEnviando] = useState(false);
   const [ultimoError, setUltimoError] = useState<string | null>(null);
   const ultimoEnvioRef = useRef(0);
+
+  const conectado = useRef(red);
+  useEffect(() => { conectado.current = red; }, [red]);
+  useEffect(() => { setUbicacionActual(null); }, [recorridoId]);
 
   useEffect(() => {
     if (!recorridoId || !listo) return;
@@ -46,7 +54,7 @@ export function useUbicacionRecorrido({
     setEnviando(false);
 
     const enviarUbicacion = async (posicion: Location.LocationObject) => {
-      if (!montado || enviandoLocal) return;
+      if (!montado) return;
 
       const ahora = Date.now();
       const ventanaMinima = Math.max(1000, intervaloMs - 500);
@@ -54,8 +62,6 @@ export function useUbicacionRecorrido({
       if (ahora - ultimoEnvioRef.current < ventanaMinima) return;
 
       ultimoEnvioRef.current = ahora;
-      enviandoLocal = true;
-      setEnviando(true);
 
       const clientEventId = generarClientEventId();
       const capturedAt = new Date(
@@ -78,6 +84,13 @@ export function useUbicacionRecorrido({
         clientEventId,
       };
 
+      if (!conectado.current || enviandoLocal) {
+        await encolarEventoOffline("ubicacion", 2, payload);
+        return;
+      }
+      enviandoLocal = true;
+      setEnviando(true);
+
       try {
         const resultado = await registrarUbicacionRecorrido(
           recorridoId,
@@ -98,9 +111,7 @@ export function useUbicacionRecorrido({
         setZonasRiesgoActuales(resultado.zonas_riesgo_activas);
         setUltimoError(null);
       } catch (error) {
-        if (!montado) return;
-
-        setUltimoError(
+        if (montado) setUltimoError(
           error instanceof Error
             ? error.message
             : "No se pudo enviar la ubicación.",
@@ -120,23 +131,44 @@ export function useUbicacionRecorrido({
       }
     };
 
+    const actualizar = (punto: PosicionRecorrido) => {
+      if (!montado) return;
+      setUbicacionActual(anterior =>
+        anterior && anterior.capturedAt >= punto.capturedAt ? anterior : punto
+      );
+    };
+
+    const recuperar = async () => {
+      const punto = await leerPosicionFondo(recorridoId).catch(() => null);
+      if (punto) actualizar(punto);
+    };
+    void recuperar();
+    const cambios = AppState.addEventListener("change", estado => {
+      if (estado === "active") void recuperar();
+    });
     const iniciar = async () => {
       try {
         const nuevaSuscripcion = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
-            timeInterval: intervaloMs,
+            timeInterval: 2500,
+            // El monitor necesita muestras frescas incluso si el estudiante está detenido.
             distanceInterval: 0,
           },
           (posicion) => {
             if (!montado) return;
 
-            setUbicacionActual({
+            actualizar({
+              heading: posicion.coords.heading,
+              precisionM: posicion.coords.accuracy,
+              capturedAt: posicion.timestamp,
               latitude: posicion.coords.latitude,
               longitude: posicion.coords.longitude,
             });
 
-            void enviarUbicacion(posicion);
+            void enviarUbicacion(posicion).catch(error => {
+              if (montado) setUltimoError(String(error));
+            });
           },
           (motivo) => {
             if (montado) setUltimoError(motivo);
@@ -163,6 +195,7 @@ export function useUbicacionRecorrido({
     void iniciar();
 
     return () => {
+      cambios.remove();
       montado = false;
       suscripcion?.remove();
     };
