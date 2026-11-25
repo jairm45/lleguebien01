@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { CorreoSinEnviar, enviarCorreo, escaparHtml } from "../_shared/correoSmtp.ts";
+
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -28,11 +30,6 @@ type Dispositivo = {
   expo_push_token: string;
 };
 
-type ResultadoCorreos = {
-  enviados: number;
-  fallidos: number;
-};
-
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -40,71 +37,42 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-export async function enviarCorreosEmergencia(
-  destinatarios: Array<{ email: string; nombre: string }>,
-  datos: {
-    alertaId: string;
-    nombreEstudiante: string;
-    tipo: string;
-    modo: string;
-    motivo?: string | null;
-    lat: number | null;
-    lng: number | null;
-    recorridoId: string;
-  },
-): Promise<ResultadoCorreos> {
-  const apiKey = Deno.env.get("RESEND_API_KEY");
-  const remitente =
-    Deno.env.get("RESEND_FROM") ?? "LlegueBien <alertas@lleguebien.app>";
-
-  if (!apiKey || destinatarios.length === 0) {
-    return { enviados: 0, fallidos: 0 };
-  }
-
-  let enviados = 0;
-  let fallidos = 0;
-
-  for (const destinatario of destinatarios) {
+async function enviarCorreosEmergencia(
+  admin: ReturnType<typeof crearClienteAdmin>, seguidores: Seguidor[], alerta: Alerta,
+  nombreEstudiante: string, motivo: string | null,
+) {
+  if (!["manual", "sacudida", "notificacion_rapida", "pasiva"].includes(alerta.tipo)) return;
+  const ubicacion = alerta.lat != null && alerta.lng != null
+    ? `https://www.google.com/maps?q=${alerta.lat},${alerta.lng}` : "Ubicación pendiente de GPS";
+  const descripcion = alerta.tipo === "pasiva" ? "Se escaló una alerta de seguridad" : "Se activó una alerta SOS";
+  const mensaje = `${descripcion} de ${nombreEstudiante}. Modo: ${alerta.modo}.`;
+  const detalle = motivo ? `Motivo: ${motivo}.` : "";
+  const resultados = await Promise.allSettled(seguidores.filter(s => s.email && s.id_seguidor).map(async s => {
+    const { data: correo, error: reserva } = await admin.rpc("reservar_correo_alerta", {
+      p_alerta_id: alerta.id, p_seguidor: s.id_seguidor,
+    });
+    if (reserva) throw reserva;
+    if (!correo) return;
+    let estado = "enviado";
     try {
-      const ubicacion =
-        datos.lat != null && datos.lng != null
-          ? `https://www.google.com/maps?q=${datos.lat},${datos.lng}`
-          : "Ubicación pendiente de GPS";
-
-      const respuesta = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Idempotency-Key": datos.alertaId + "/" + destinatario.email,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: remitente,
-          to: destinatario.email,
-          subject: `Emergencia de ${datos.nombreEstudiante}`,
-          html: `
-            <h2>Alerta de emergencia</h2>
-            <p><strong>${datos.nombreEstudiante}</strong> activó una emergencia (${datos.tipo}, modo ${datos.modo}).</p>
-            ${datos.motivo ? `<p>Motivo detectado: <strong>${datos.motivo}</strong></p>` : ""}
-            <p>${ubicacion}</p>
-            <p>Recorrido: ${datos.recorridoId}</p>
-          `,
-        }),
-      });
-
-      if (respuesta.ok) {
-        enviados += 1;
-      } else {
-        fallidos += 1;
-        console.error("Resend error", await respuesta.text());
-      }
+      await enviarCorreo(correo, "Emergencia en LleguéBien", [mensaje, detalle, ubicacion].join(" "),
+        `<h2>Alerta de emergencia</h2><p>${escaparHtml(mensaje)}</p><p>${escaparHtml(detalle)}</p><p>${ubicacion}</p>`);
     } catch (error) {
-      fallidos += 1;
-      console.error("Error enviando correo", error);
+      // Tras un corte durante DATA, Gmail pudo aceptar el correo aunque no llegase la respuesta.
+      const fallo = error as { responseCode?: number; code?: string };
+      estado = error instanceof CorreoSinEnviar || (fallo.responseCode ?? 0) >= 400 ||
+          fallo.code === "EDNS" || fallo.code === "EAUTH" || fallo.code === "ECONNREFUSED"
+        ? "reintentar" : "incierto";
     }
-  }
+    const { error } = await admin.from("envios_alerta_correo").update({ estado })
+      .eq("alerta_id", alerta.id).eq("id_seguidor", s.id_seguidor!);
+    if (error || estado !== "enviado") throw new Error("Entrega de correo sin confirmar.");
+  }));
+  if (resultados.some(r => r.status === "rejected")) throw new Error("Falló el envío de correo.");
+}
 
-  return { enviados, fallidos };
+function crearClienteAdmin(url: string, clave: string) {
+  return createClient(url, clave, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 async function enviarPush(
@@ -181,9 +149,7 @@ Deno.serve(async (request) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const admin = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const admin = crearClienteAdmin(supabaseUrl, serviceKey);
 
     let alerta: Alerta | null = null;
 
@@ -308,124 +274,118 @@ Deno.serve(async (request) => {
       });
     }
 
-    const { data: dispositivos, error: dispositivosError } = await admin
-      .from("dispositivos_push")
-      .select("id_usuario, expo_push_token")
-      .in("id_usuario", idsSeguidores);
-
-    if (dispositivosError) {
-      return jsonResponse({ error: dispositivosError.message }, 500);
-    }
-
-    const tokens = [
-      ...new Set(
-        ((dispositivos ?? []) as Dispositivo[]).map(
-          (dispositivo) => dispositivo.expo_push_token,
-        ),
-      ),
-    ];
-
-    if (tokens.length === 0) {
-      await admin
-        .from("alertas")
-        .update({
-          notificados: 0,
-          fallidos: 0,
-          notificacion_enviada_en: null,
-        })
-        .eq("id", alerta.id);
-
-      return jsonResponse({
-        notificados: 0,
-        fallidos: 0,
-        mensaje: "Seguidores activos sin token push",
-      }, 503);
-    }
-
-    const url = `lleguebien01://recorrido/emergencia?alertaId=${alerta.id}&recorridoId=${alerta.id_recorrido}`;
     const motivo = typeof body.motivo === "string" ? body.motivo : null;
-    const cuerpo =
-      alerta.tipo === "pasiva"
-        ? "Su recorrido se detuvo sin respuesta al check-in de seguridad. Abre para ver la ubicación en vivo."
-        : alerta.modo === "silencioso"
-          ? "Activó una alerta discreta. Abre para ver la ubicación en vivo."
-          : "Activó una alerta SOS. Abre para ver la ubicación en vivo.";
-
-    const intento = crypto.randomUUID();
-    const { data: reservados, error: reserva } = await admin.rpc("reservar_destinos_alerta", {
-      p_alerta_id: alerta.id, p_tokens: tokens, p_intento: intento,
-    });
-    if (reserva) throw reserva;
-    const destinos = (reservados ?? []) as string[];
-    const mensajes = destinos.map((token) => ({
-      to: token,
-      title: `Emergencia de ${nombreEstudiante}`,
-      body: cuerpo,
-      sound: "default",
-      priority: "high",
-      channelId: "emergencias",
-      data: {
-        url,
-        alerta_id: alerta.id,
-        recorrido_id: alerta.id_recorrido,
-        tipo: alerta.tipo,
-        modo: alerta.modo,
-        motivo,
-        lat: alerta.lat,
-        lng: alerta.lng,
-      },
-    }));
-
-    const aceptados = await enviarPush(mensajes);
-    if (aceptados.length) {
-      const { error } = await admin.from("envios_alerta_push").update({ aceptado: true, reservado_hasta: null })
-        .eq("alerta_id", alerta.id).eq("intento_id", intento).in("token", aceptados);
-      if (error) throw error;
+    const [push, correo] = await Promise.allSettled([
+      notificarDispositivos(admin, idsSeguidores, alerta, nombreEstudiante, motivo),
+      enviarCorreosEmergencia(admin, listaSeguidores, alerta, nombreEstudiante, motivo),
+    ]);
+    if (push.status === "rejected") throw push.reason;
+    if (correo.status === "rejected" && push.value.ok) {
+      // El monitor reintentará. En la app los contadores siguen describiendo los tickets de Expo.
+      return jsonResponse({ ...(await push.value.json()), error_correo: "Correo sin confirmar" },
+        token === serviceKey ? 503 : push.value.status);
     }
-    const { error: liberar } = await admin.from("envios_alerta_push").update({ reservado_hasta: null })
-      .eq("alerta_id", alerta.id).eq("intento_id", intento).eq("aceptado", false);
-    if (liberar) throw liberar;
-    const { count, error: conteo } = await admin.from("envios_alerta_push").select("token", { count: "exact", head: true })
-      .eq("alerta_id", alerta.id).eq("aceptado", true).in("token", tokens);
-    if (conteo) throw conteo;
-    const push = { notificados: count ?? 0, fallidos: tokens.length - (count ?? 0) };
-
-    await enviarCorreosEmergencia(
-      listaSeguidores
-        .filter((seguidor): seguidor is Seguidor & { email: string } =>
-          Boolean(seguidor.email),
-        )
-        .map((seguidor) => ({
-          email: seguidor.email,
-          nombre: seguidor.nombre ?? "Seguidor",
-        })),
-      {
-        alertaId: alerta.id,
-        nombreEstudiante,
-        tipo: alerta.tipo,
-        modo: alerta.modo,
-        motivo,
-        lat: alerta.lat,
-        lng: alerta.lng,
-        recorridoId: alerta.id_recorrido,
-      },
-    ).catch((error) => {
-      console.error("Error en correos de emergencia", error);
-      return { enviados: 0, fallidos: 0 };
-    });
-
-    await admin
-      .from("alertas")
-      .update({
-        notificados: push.notificados,
-        fallidos: push.fallidos,
-        notificacion_enviada_en: push.fallidos ? null : new Date().toISOString(),
-      })
-      .eq("id", alerta.id);
-
-    return jsonResponse(push, push.fallidos ? 503 : 200);
+    return push.value;
   } catch (error) {
     console.error("enviar-alerta error", error);
     return jsonResponse({ error: "Error interno enviando alerta" }, 500);
   }
 });
+
+
+async function notificarDispositivos(
+  admin: ReturnType<typeof crearClienteAdmin>, idsSeguidores: string[], alerta: Alerta,
+  nombreEstudiante: string, motivo: string | null,
+) {
+  const { data: dispositivos, error: dispositivosError } = await admin
+    .from("dispositivos_push")
+    .select("id_usuario, expo_push_token")
+    .in("id_usuario", idsSeguidores);
+
+  if (dispositivosError) {
+    return jsonResponse({ error: dispositivosError.message }, 500);
+  }
+
+  const tokens = [
+    ...new Set(
+      ((dispositivos ?? []) as Dispositivo[]).map(
+        (dispositivo) => dispositivo.expo_push_token,
+      ),
+    ),
+  ];
+
+  if (tokens.length === 0) {
+    await admin
+      .from("alertas")
+      .update({
+        notificados: 0,
+        fallidos: 0,
+        notificacion_enviada_en: null,
+      })
+      .eq("id", alerta.id);
+
+    return jsonResponse({
+      notificados: 0,
+      fallidos: 0,
+      mensaje: "Seguidores activos sin token push",
+    }, 503);
+  }
+
+  const url = `lleguebien01://recorrido/emergencia?alertaId=${alerta.id}&recorridoId=${alerta.id_recorrido}`;
+  const cuerpo =
+    alerta.tipo === "pasiva"
+      ? "Su recorrido se detuvo sin respuesta al check-in de seguridad. Abre para ver la ubicación en vivo."
+      : alerta.modo === "silencioso"
+        ? "Activó una alerta discreta. Abre para ver la ubicación en vivo."
+        : "Activó una alerta SOS. Abre para ver la ubicación en vivo.";
+
+  const intento = crypto.randomUUID();
+  const { data: reservados, error: reserva } = await admin.rpc("reservar_destinos_alerta", {
+    p_alerta_id: alerta.id, p_tokens: tokens, p_intento: intento,
+  });
+  if (reserva) throw reserva;
+  const destinos = (reservados ?? []) as string[];
+  const mensajes = destinos.map((token) => ({
+    to: token,
+    title: `Emergencia de ${nombreEstudiante}`,
+    body: cuerpo,
+    sound: "default",
+    priority: "high",
+    channelId: "emergencias",
+    data: {
+      url,
+      alerta_id: alerta.id,
+      recorrido_id: alerta.id_recorrido,
+      tipo: alerta.tipo,
+      modo: alerta.modo,
+      motivo,
+      lat: alerta.lat,
+      lng: alerta.lng,
+    },
+  }));
+
+  const aceptados = await enviarPush(mensajes);
+  if (aceptados.length) {
+    const { error } = await admin.from("envios_alerta_push").update({ aceptado: true, reservado_hasta: null })
+      .eq("alerta_id", alerta.id).eq("intento_id", intento).in("token", aceptados);
+    if (error) throw error;
+  }
+  const { error: liberar } = await admin.from("envios_alerta_push").update({ reservado_hasta: null })
+    .eq("alerta_id", alerta.id).eq("intento_id", intento).eq("aceptado", false);
+  if (liberar) throw liberar;
+  const { count, error: conteo } = await admin.from("envios_alerta_push").select("token", { count: "exact", head: true })
+    .eq("alerta_id", alerta.id).eq("aceptado", true).in("token", tokens);
+  if (conteo) throw conteo;
+  const push = { notificados: count ?? 0, fallidos: tokens.length - (count ?? 0) };
+
+  await admin
+    .from("alertas")
+    .update({
+      notificados: push.notificados,
+      fallidos: push.fallidos,
+      notificacion_enviada_en: push.fallidos ? null : new Date().toISOString(),
+    })
+    .eq("id", alerta.id);
+
+  return jsonResponse(push, push.fallidos ? 503 : 200);
+}

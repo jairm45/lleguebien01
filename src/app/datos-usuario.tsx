@@ -4,7 +4,6 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
@@ -12,9 +11,13 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../services/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSesion } from "../context/SesionContext";
 import { styles } from "../styles/DatosUsuarioStyles";
 
 export default function DatosUsuario() {
+  const margen = useSafeAreaInsets();
+  const { actualizarPerfil } = useSesion();
   const [pais, setPais] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [universidad, setUniversidad] = useState("");
@@ -53,16 +56,17 @@ export default function DatosUsuario() {
     if (error) {
       Alert.alert("Error guardando datos", error.message);
     } else {
+      void actualizarPerfil(user.id).catch(() => undefined);
       Alert.alert("¡Éxito!", "Tus datos han sido guardados.");
       router.replace("/estudiante/inicio");
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: margen.bottom }]}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
           <Text style={styles.headerTitle}>Ubicación y estudios</Text>
           <Text style={styles.headerSubtitle}>
             Último paso antes de empezar.
@@ -162,6 +166,6 @@ export default function DatosUsuario() {
           </Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -3,16 +3,19 @@ import { router } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useEnlaceRecuperacion } from "../../../hooks/useEnlaceRecuperacion";
 import { supabase } from "../../../services/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../../../styles/RecuperarStyles";
 
 export default function NuevoPin() {
+  const enlace = useEnlaceRecuperacion();
+  const margen = useSafeAreaInsets();
   const [pin, setPin] = useState("");
   const [confirmarPin, setConfirmarPin] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -21,6 +24,7 @@ export default function NuevoPin() {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
 
   const guardarPin = async () => {
+    if (enlace !== "listo") return Alert.alert("Revisa tu correo", "Abre un enlace de recuperación vigente.");
     if (pin.length !== 6)
       return Alert.alert("Error", "El PIN debe tener 6 dígitos.");
     if (pin !== confirmarPin)
@@ -74,8 +78,8 @@ export default function NuevoPin() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { paddingBottom: margen.bottom }]}>
+      <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
         <Text style={styles.headerTitle}>Crea tu nuevo PIN</Text>
         <Text style={styles.headerSubtitle}>
           Elige 6 dígitos que puedas recordar.
@@ -147,10 +151,10 @@ export default function NuevoPin() {
             color="#FFF"
           />
           <Text style={styles.buttonText}>
-            {cargando ? "Guardando..." : "Guardar nuevo PIN"}
+            {enlace === "invalido" ? "Revisa el enlace de recuperación" : cargando ? "Guardando..." : "Guardar nuevo PIN"}
           </Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -2,25 +2,27 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
-    SafeAreaView,
     ScrollView,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ResumenSeguidores } from "../components/ResumenSeguidores";
 import { styles } from "../styles/ProteccionStyles";
 
 export default function ProteccionScreen() {
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       <ScrollView bounces={false}>
         {/* Cabecera Azul */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 24 }]}>
           {/* 👇 BOTÓN DE CONFIGURACIÓN (ENGRANAJE) */}
           <TouchableOpacity
             onPress={() => router.push("/configuracion")}
-            style={{ position: "absolute", top: 50, right: 20, zIndex: 10 }}
+            style={{ position: "absolute", top: insets.top + 16, right: 20, zIndex: 10 }}
           >
             <MaterialCommunityIcons name="cog" size={26} color="#FFF" />
           </TouchableOpacity>
@@ -39,36 +41,7 @@ export default function ProteccionScreen() {
         </View>
 
         <View style={styles.body}>
-          {/* Tarjeta del contacto */}
-          <View style={styles.card}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>M</Text>
-            </View>
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>Mamá</Text>
-              <Text style={styles.cardSubtitle}>
-                Contacto de confianza · código AB12CD
-              </Text>
-            </View>
-            <View style={styles.statusTag}>
-              <Text style={styles.statusText}>Vinculada</Text>
-            </View>
-          </View>
-
-          {/* Código de invitación */}
-          <View style={styles.codeCard}>
-            <View>
-              <Text style={styles.codeLabel}>
-                Tu código para que te vinculen
-              </Text>
-              <Text style={styles.codeValue}>KM4Q2X</Text>
-            </View>
-            <MaterialCommunityIcons
-              name="content-copy"
-              size={24}
-              color="#1A1E3C"
-            />
-          </View>
+          <ResumenSeguidores />
 
           {/* Cómo funciona */}
           <View style={styles.howItWorks}>
@@ -130,6 +103,6 @@ export default function ProteccionScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

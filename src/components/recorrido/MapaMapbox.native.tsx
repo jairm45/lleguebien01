@@ -34,6 +34,9 @@ export function MapaMapbox({
   seguirUsuario,
   ubicacionActual,
   onMoverMapa,
+  vistaFamiliar,
+  encuadre = 0,
+  pulsar = true,
 }: MapaMapboxProps) {
   const camara = useRef<Camera>(null);
   const inicial = useRef({ centerCoordinate: [centroInicial.longitude, centroInicial.latitude], zoomLevel: 16 });
@@ -50,6 +53,26 @@ export function MapaMapbox({
       animationMode: "easeTo", animationDuration: 650,
     });
   }, [listo, seguirUsuario, ubicacionActual]);
+
+  const emergencia = vistaFamiliar === "emergencia";
+  const [pulso, setPulso] = useState(false);
+  useEffect(() => {
+    if (!emergencia || !pulsar) return;
+    const reloj = setInterval(() => setPulso(v => !v), 850);
+    return () => clearInterval(reloj);
+  }, [emergencia, pulsar]);
+  const ultimoEncuadre = useRef(0);
+  useEffect(() => {
+    if (!listo || !encuadre || ultimoEncuadre.current === encuadre || !ruta?.geometry.coordinates.length) return;
+    ultimoEncuadre.current = encuadre;
+    const puntos = ruta.geometry.coordinates;
+    const ne = [...puntos[0]], so = [...puntos[0]];
+    for (const [lng, lat] of puntos) {
+      ne[0] = Math.max(ne[0], lng); ne[1] = Math.max(ne[1], lat);
+      so[0] = Math.min(so[0], lng); so[1] = Math.min(so[1], lat);
+    }
+    camara.current?.fitBounds(ne, so, [55, 35, 55, 35], 550);
+  }, [encuadre, listo, ruta]);
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -101,7 +124,7 @@ export function MapaMapbox({
           <LineLayer
             id="ruta-peatonal-line"
             style={{
-              lineColor: "#F5A623",
+              lineColor: vistaFamiliar ? "#1ABC9C" : "#F5A623",
               lineWidth: 5,
             }}
           />
@@ -110,7 +133,7 @@ export function MapaMapbox({
 
       {rastro.length >= 2 && (
         <ShapeSource id="rastro-local" shape={{ type: "LineString", coordinates: rastro }}>
-          <LineLayer id="linea-rastro" style={{ lineColor: "#087E74", lineWidth: 3 }} />
+          <LineLayer id="linea-rastro" style={emergencia ? { lineColor: "#E5484D", lineDasharray: [1, 2], lineWidth: 4 } : { lineColor: "#087E74", lineWidth: 3 }} />
         </ShapeSource>
       )}
 
@@ -123,21 +146,25 @@ export function MapaMapbox({
               20, (ubicacionActual.precisionM ?? 0) * 1048576 /
                 (78271.52 * Math.cos(ubicacionActual.latitude * Math.PI / 180))],
           }} />
+          <CircleLayer id="pulso-emergencia" style={{
+            circleRadius: pulso ? 20 : 10, circleRadiusTransition: { duration: 800, delay: 0 },
+            circleColor: "#E5484D", circleOpacity: emergencia && pulsar ? 0.28 : 0,
+          }} />
           <CircleLayer id="punto-estudiante" style={{
-            circleRadius: 7, circleColor: "#087E74", circleStrokeColor: "#FFFFFF", circleStrokeWidth: 2,
+            circleRadius: 7, circleColor: emergencia ? "#E5484D" : "#087E74", circleStrokeColor: "#FFFFFF", circleStrokeWidth: 2,
           }} />
         </ShapeSource>
       )}
 
-      <PointAnnotation
+      {destino && <PointAnnotation
         id="destino-universidad"
         coordinate={[destino.longitude, destino.latitude]}
         anchor={{ x: 0.5, y: 0.5 }}
       >
         <View style={styles.marker}>
-          <MaterialCommunityIcons name="school" size={20} color="#FFFFFF" />
+          <MaterialCommunityIcons name={vistaFamiliar ? "map-marker" : "school"} size={20} color="#FFFFFF" />
         </View>
-      </PointAnnotation>
+      </PointAnnotation>}
     </MapView>
   );
 }

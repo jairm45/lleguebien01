@@ -5,16 +5,17 @@ import { useState } from "react";
 
 import {
   Alert,
-  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { supabase } from "../services/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../styles/AuthStyles";
 
 export default function AuthScreen() {
+  const margen = useSafeAreaInsets();
   const [paso, setPaso] = useState<"correo" | "pin">("correo");
   const [correo, setCorreo] = useState("");
   const [pin, setPin] = useState("");
@@ -79,7 +80,7 @@ export default function AuthScreen() {
       // 3. LOGIN EXITOSO: Verificamos si ya tiene datos completos
       const { data: perfil, error: perfilError } = await supabase
         .from("perfiles")
-        .select("identificacion")
+        .select("identificacion,rol")
         .eq("id", authData.user.id)
         .single();
 
@@ -91,6 +92,7 @@ export default function AuthScreen() {
       }
 
       // Si el perfil existe y tiene identificación, ya completó sus datos
+      if (perfil?.rol === "seguidor") { router.replace("/"); return; }
       if (perfil && perfil.identificacion) {
         // Redirigir al inicio
         router.replace("/estudiante/inicio");
@@ -116,10 +118,10 @@ export default function AuthScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: margen.bottom }]}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
         <View style={styles.logoContainer}>
           <MaterialCommunityIcons name="school" size={40} color="#F5A623" />
         </View>
@@ -204,6 +206,6 @@ export default function AuthScreen() {
           </>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

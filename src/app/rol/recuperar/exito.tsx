@@ -1,12 +1,16 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
-import { SafeAreaView, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSesion } from "../../../context/SesionContext";
 import { styles } from "../../../styles/RecuperarStyles";
 
 export default function ExitoPin() {
+  const { perfil } = useSesion();
+  const margen = useSafeAreaInsets();
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { paddingBottom: margen.bottom }]}>
+      <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
         <View style={styles.iconCircle}>
           <MaterialCommunityIcons name="check" size={50} color="#FFF" />
         </View>
@@ -20,11 +24,11 @@ export default function ExitoPin() {
       <View style={styles.body}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.replace("/auth")}
+          onPress={() => router.replace(perfil?.rol === "seguidor" ? "/" : "/auth")}
         >
           <Text style={styles.buttonText}>Ir a iniciar sesión</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

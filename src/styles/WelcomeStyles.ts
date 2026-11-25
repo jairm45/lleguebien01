@@ -2,6 +2,7 @@ import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1A1E3C", padding: 25 },
+  cardTitleReintentar: { fontSize: 16, color: "#FFF", padding: 14 },
   loading: {
     flex: 1,
     alignItems: "center",

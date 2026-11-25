@@ -2,33 +2,31 @@ import "../tasks/backgroundLocationTask";
 
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { DestinoSeleccionProvider } from "../context/DestinoSeleccionContext";
 import { SesionProvider, useSesion } from "../context/SesionContext";
-import {
-  iniciarSincronizacionAutomatica,
-} from "../services/colaOffline";
 import { useGuardiaRecorrido } from "../hooks/useGuardiaRecorrido";
 import { useAccionesNotificacion } from "../hooks/useAccionesNotificacion";
 
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
-  const { cargando, session } = useSesion();
-  const { bloqueo, leyendoCache, esperarParaNotificaciones } = useGuardiaRecorrido(session?.user.id);
+  const { cargando, session, perfil } = useSesion();
+  const { bloqueo, leyendoCache, esperarParaNotificaciones } = useGuardiaRecorrido(perfil?.rol === "seguidor" ? undefined : session?.user.id);
 
+  const [navegacionIniciada, iniciarNavegacion] = useState(false);
   useEffect(() => {
     if (!cargando && !leyendoCache) {
-      SplashScreen.hideAsync();
+      void SplashScreen.hideAsync().finally(() => iniciarNavegacion(true));
     }
   }, [cargando, leyendoCache]);
 
   useAccionesNotificacion(esperarParaNotificaciones);
 
-  if (cargando || leyendoCache) {
+  if (!navegacionIniciada) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#1ABC9C" size="large" />
@@ -41,34 +39,42 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!bloqueo}>
           <Stack.Screen name="index" />
-          <Stack.Screen name="auth" />
-          <Stack.Screen name="registro" />
-          <Stack.Screen name="datos-personales" />
-          <Stack.Screen name="datos-usuario" />
-          <Stack.Screen name="permisos" />
-          <Stack.Screen name="proteccion" />
-          <Stack.Screen name="configuracion" />
-          <Stack.Screen name="iniciar-recorrido" />
-          <Stack.Screen
-            name="seleccionar-destino"
-            options={{ presentation: "modal" }}
-          />
-          <Stack.Screen name="editar-perfil" />
-          <Stack.Screen name="estudiante" />
+          <Stack.Screen name="seguir" />
+          <Stack.Screen name="familiar" />
+          <Stack.Screen name="seguidor" />
+          <Stack.Protected guard={perfil?.rol !== "seguidor"}>
+            <Stack.Screen name="auth" />
+            <Stack.Screen name="registro" />
+            <Stack.Screen name="datos-personales" />
+            <Stack.Screen name="datos-usuario" />
+            <Stack.Screen name="permisos" />
+            <Stack.Screen name="proteccion" />
+            <Stack.Screen name="configuracion" />
+            <Stack.Screen name="iniciar-recorrido" />
+            <Stack.Screen
+              name="seleccionar-destino"
+              options={{ presentation: "modal" }}
+            />
+            <Stack.Screen name="editar-perfil" />
+            <Stack.Screen name="estudiante" />
+          </Stack.Protected>
           <Stack.Screen name="rol/recuperar/exito" />
           <Stack.Screen name="rol/recuperar/nuevo-pin" />
           <Stack.Screen name="rol/recuperar/revisa-correo" />
           <Stack.Screen name="rol/recuperar/solicitar" />
         </Stack.Protected>
-        <Stack.Screen name="recorrido" options={{ gestureEnabled: false }} />
+        <Stack.Protected guard={perfil?.rol !== "seguidor"}>
+          <Stack.Screen name="recorrido" options={{ gestureEnabled: false }} />
+        </Stack.Protected>
       </Stack>
+      {(leyendoCache || cargando) && <View style={[StyleSheet.absoluteFill, styles.loading]}>
+        <ActivityIndicator color="#1ABC9C" />
+      </View>}
     </SafeAreaProvider>
   );
 }
 
 export default function RootLayout() {
-  useEffect(() => iniciarSincronizacionAutomatica(), []);
-
   return (
     <SesionProvider>
       <DestinoSeleccionProvider>

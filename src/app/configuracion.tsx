@@ -6,7 +6,6 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
-    SafeAreaView,
     ScrollView,
     Text,
     TextInput,
@@ -14,9 +13,11 @@ import {
     View,
 } from "react-native";
 import { supabase } from "../services/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../styles/ConfiguracionStyles";
 
 export default function ConfiguracionScreen() {
+  const insets = useSafeAreaInsets();
   const [sacudidas, setSacudidas] = useState(4);
   const [tiempoCancelacion, setTiempoCancelacion] = useState(8);
   const [contactoNombre, setContactoNombre] = useState("");
@@ -94,7 +95,7 @@ export default function ConfiguracionScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       {/* 👇 KeyboardAvoidingView para que el teclado no tape los campos */}
       <KeyboardAvoidingView
@@ -107,7 +108,7 @@ export default function ConfiguracionScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ flexGrow: 1 }}
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
             <Text style={styles.headerTitle}>Configuración</Text>
             <Text style={styles.headerSubtitle}>
               Ajusta cómo funciona la alerta de emergencia.
@@ -179,7 +180,7 @@ export default function ConfiguracionScreen() {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Ej: Mamá"
+                  placeholder="Nombre del contacto"
                   value={contactoNombre}
                   onChangeText={setContactoNombre}
                 />
@@ -194,7 +195,7 @@ export default function ConfiguracionScreen() {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Ej: +573001234567"
+                  placeholder="Número de teléfono"
                   keyboardType="phone-pad"
                   value={contactoTelefono}
                   onChangeText={setContactoTelefono}
@@ -212,7 +213,7 @@ export default function ConfiguracionScreen() {
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Ej: mama@correo.com"
+                  placeholder="Correo del contacto"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={contactoEmail}
@@ -232,6 +233,6 @@ export default function ConfiguracionScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }

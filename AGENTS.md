@@ -12,9 +12,10 @@ Mobile app (Expo SDK 58, React Native 0.88, React 19.3, Expo Router, Supabase, M
   - Cola offline FIFO en SQLite (`src/services/colaOffline.ts`) con prioridades (emergencias antes que GPS), mutex, reintentos y descarte de eventos venenosos.
   - Tracking en segundo plano (`src/tasks/backgroundLocationTask.ts`), contextos compartidos (`src/context/RecorridoContext.tsx`, `src/context/SesionContext.tsx`), servicios `src/services/emergencias.ts` y `src/services/notificacionesPush.ts`.
   - Pantallas E11 (`cuenta-regresiva.tsx`), E12 (`sos.tsx`, modo sonoro o silencioso), E13 (`emergencia.tsx`), hooks `src/hooks/useAlarmaEmergencia.ts` y `src/hooks/useDetectorSacudidas.ts`, lógica `src/lib/shake.ts`, audio `assets/audio/alarma.m4a`, permisos en dos pasos + canales Android (`src/app/permisos.tsx`), limpieza de token al cerrar sesión (`src/app/estudiante/perfil.tsx`) y Edge Function `supabase/functions/enviar-alerta/index.ts`.
-  - Pendientes operativos de 3A: desplegar `enviar-alerta` en Supabase y recompilar el Development Build porque se agregaron dependencias nativas (`expo-sqlite`, `expo-network`, `expo-device`).
+  - `enviar-alerta` está desplegada en Supabase. El Development Build debe incluir las dependencias nativas de 3A (`expo-sqlite`, `expo-network`, `expo-device`).
 - **Fase 3B (A medias — requiere auditoría antes de continuar):** Quedó interrumpida por límite de cuota de OpenCode. Alcance esperado: botón/acción rápida SOS desde la notificación persistente en segundo plano y monitor pasivo _"¿Estás bien?"_ (ante retrasos, pérdida de señal o parada prolongada en zona de riesgo, siempre con confirmación local antes de escalar al seguidor).
-- **Fase 4 (Pendiente al final):** Rol seguidor (auth sin restringir exclusivamente a `@unipacifico.edu.co`, vinculación por código vía RPC, vista de seguimiento en vivo reutilizando `MapaMapbox` + Supabase Realtime y envío push + correo unificado en `enviar-alerta` vía Resend).
+- **Fase 4A (Implementada):** `docs/migration-fase4-rol-seguidor.sql` y las RPC de invitación permiten previsualizar, aceptar, rechazar y revocar vínculos. El estudiante comparte un código de seis caracteres con vigencia de 24 horas. Las Edge Functions `enviar-invitacion-seguidor` y `enviar-alerta` usan Gmail SMTP mediante Nodemailer y `_shared/correoSmtp.ts`. Los reintentos del monitor reservan cada correo por alerta y seguidor. Los avisos de entrada a zona de riesgo son locales.
+- **Fase 4B (Completada):** P01 elige el rol según la sesión y el perfil (`src/app/index.tsx`). S01–S06 viven en `src/app/familiar/`. El deep link `lleguebien01://seguir?codigo=…` se registra en `src/app/seguir.tsx` y conserva la invitación al iniciar sesión o completar el registro. S07–S11 y Perfil viven en `src/app/seguidor/`. El panel, el historial y los mapas consultan datos bajo RLS, se refrescan al enfocar y escuchan Realtime. El mapa reutiliza Mapbox con respaldo de consulta cada 20 s y ordena el rastro por `captured_at`. El toque de una notificación con `alerta_id` y `recorrido_id` abre S11 para una cuenta vinculada (`src/hooks/useAccionesNotificacion.ts`). El cierre de sesión del seguidor usa `cerrarSesionSeguidor`, que elimina el token push antes de invalidar el JWT. La validación de entrega por Gmail, push y ubicación GPS requiere dos cuentas en un Development Build.
 - **Infra de release (Completada):** APK Android optimizado con `expo-build-properties` (solo `arm64-v8a`, R8, `shrinkResources`, PNG crunch) y workflow `.github/workflows/release-apk.yml` que compila con Gradle en GitHub Actions y publica en GitHub Releases (tag `v*` + release rodante `latest-apk`). Guía completa en `RELEASES.md`.
 
 ## Commands
@@ -27,6 +28,7 @@ npx expo start --dev-client                                        # dev server 
 npx tsc --noEmit                                                   # typecheck — main automated check
 npx expo-doctor                                                    # project health check (20/20)
 npx eas-cli@latest build --profile development --platform android  # rebuild dev build when native deps/plugins change
+npx supabase functions deploy enviar-invitacion-seguidor --project-ref kbthjrgbrkzbzmnrarnp
 npx supabase functions deploy enviar-alerta --project-ref kbthjrgbrkzbzmnrarnp
 
 # APK release optimizado compilado localmente (mismo camino que el workflow de GitHub)
@@ -41,7 +43,7 @@ cd android && ./gradlew assembleRelease                            # → android
 
 ## Architecture & PostGIS / Offline Rules
 
-- Entry point is `expo-router/entry`. All routes live in `src/app/`; root layout is `src/app/_layout.tsx` (registers background location task, auto-sync, notification routing, and session state). Student tabs live in `src/app/estudiante/_layout.tsx` (`inicio`, `seguidores`, `perfil`).
+- Entry point is `expo-router/entry`. All routes live in `src/app/`; root layout is `src/app/_layout.tsx` (registers background location task, notification routing, and session state; SesionContext inicia la sincronización FIFO para estudiantes). Student tabs live in `src/app/estudiante/_layout.tsx` (`inicio`, `seguidores`, `perfil`).
 - Recorrido flow lives in `src/app/recorrido/` (`_layout.tsx`, `index.tsx` [E10], `cuenta-regresiva.tsx` [E11], `sos.tsx` [E12], `emergencia.tsx` [E13], `llegada.tsx` [E14]) coordinated through `src/context/RecorridoContext.tsx` and `src/tasks/backgroundLocationTask.ts`.
 - Shared logic is organized under `src/services/`, `src/hooks/`, `src/components/`, `src/context/`, `src/tasks/`, `src/lib/`, and `src/styles/`. Imports are relative (`../services/supabase`).
 - **Supabase & PostGIS (project `kbthjrgbrkzbzmnrarnp`):**
@@ -51,11 +53,11 @@ cd android && ./gradlew assembleRelease                            # → android
   - Keep RLS helper functions and RPCs as `SECURITY INVOKER` where appropriate, accepting `'activo'` and `'emergencia'` during active tracking and preserving `captured_at` + `client_event_id` for idempotent FIFO replay.
   - Database migrations live in `docs/migration-*.sql` (SQL scripts are idempotent and applied via Supabase SQL Editor if MCP is read-only).
 - **Offline-first FIFO:** `src/services/colaOffline.ts` stores offline emergencies and GPS points in SQLite with priority ordering, mutex locking, retry limits, and poison-event discarding. Emergency sound/vibration must start locally without waiting for network.
-- **Environment & Secrets:** Public client tokens use `EXPO_PUBLIC_*` in `.env` (gitignored, e.g., `EXPO_PUBLIC_MAPBOX_TOKEN`). Native build secrets like `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` live in EAS secrets/env vars, and Edge Function secrets (e.g., `RESEND_API_KEY`, `RESEND_FROM`) live in Supabase Secrets. Never commit `.env` or secret tokens.
+- **Environment & Secrets:** Public client tokens use `EXPO_PUBLIC_*` in `.env` (gitignored, e.g., `EXPO_PUBLIC_MAPBOX_TOKEN`). Native build secrets like `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` live in EAS secrets/env vars, and Edge Function secrets (`SMTP_HOST`, `SMTP_PORT` (465 para Gmail), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`) live in Supabase Secrets. Never commit `.env` or secret tokens.
 
 ## Auth, Navigation & UI Conventions
 
-- Student auth currently accepts `@unipacifico.edu.co` emails with a 6-digit PIN as the Supabase password. `auth.tsx` auto-registers on `"Invalid login credentials"` and `registro.tsx` auto-logs-in on `"User already registered"`, routing by `perfiles.identificacion` (intentional behavior). Follower role expansion belongs to Fase 4.
+- Student auth currently accepts `@unipacifico.edu.co` emails with a 6-digit PIN as the Supabase password. `auth.tsx` auto-registers on `"Invalid login credentials"` and `registro.tsx` auto-logs-in on `"User already registered"`, routing by `perfiles.identificacion` (intentional behavior). El acceso familiar admite cualquier dominio de correo válido y conserva el rol de las cuentas existentes.
 - Password reset redirects to `lleguebien01://rol/recuperar/nuevo-pin` and requires a Development Build for testing.
 - Push tokens in `dispositivos_push` have a global unique constraint (`expo_push_token`); always clean up via `eliminar_token_push` on sign-out and upsert cleanly on sign-in.
 - `app.json` enables `typedRoutes` and `reactCompiler`. Route types live in gitignored `.expo/types/router.d.ts`; restart dev server if route types look stale after adding routes.

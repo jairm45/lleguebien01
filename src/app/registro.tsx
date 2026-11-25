@@ -4,16 +4,17 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { supabase } from "../services/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../styles/AuthStyles";
 
 export default function RegistroScreen() {
+  const margen = useSafeAreaInsets();
   const [paso, setPaso] = useState<"correo" | "pin">("correo");
   const [correo, setCorreo] = useState("");
   const [pin, setPin] = useState("");
@@ -69,13 +70,14 @@ export default function RegistroScreen() {
       if (loginData.user) {
         const { data: perfil } = await supabase
           .from("perfiles")
-          .select("identificacion")
+          .select("identificacion,rol")
           .eq("id", loginData.user.id)
           .single();
 
         setCargando(false);
 
-        if (perfil && perfil.identificacion) {
+        if (perfil?.rol === "seguidor") { router.replace("/"); return; }
+      if (perfil && perfil.identificacion) {
           router.replace("/estudiante/inicio");
         } else {
           router.replace("/datos-personales");
@@ -119,10 +121,10 @@ export default function RegistroScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: margen.bottom }]}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
         <View style={styles.logoContainer}>
           <MaterialCommunityIcons
             name="account-plus"
@@ -203,6 +205,6 @@ export default function RegistroScreen() {
           </>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
