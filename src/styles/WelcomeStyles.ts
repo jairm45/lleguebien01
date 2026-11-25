@@ -2,6 +2,12 @@ import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1A1E3C", padding: 25 },
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1A1E3C",
+  },
   content: { flex: 1, justifyContent: "center" },
   logoContainer: {
     width: 100,

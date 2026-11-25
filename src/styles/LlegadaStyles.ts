@@ -1,0 +1,115 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+  },
+  content: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    gap: 20,
+  },
+  hero: {
+    alignItems: "center",
+    gap: 10,
+  },
+  checkCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#1ABC9C",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#1ABC9C",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#1A1E3C",
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#73799D",
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  metricRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 16,
+    padding: 14,
+    gap: 4,
+  },
+  metricValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#1A1E3C",
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: "#73799D",
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+    gap: 12,
+  },
+  infoRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: "#73799D",
+  },
+  infoValue: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1A1E3C",
+    textAlign: "right",
+  },
+  button: {
+    backgroundColor: "#1ABC9C",
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  pressed: {
+    opacity: 0.85,
+  },
+});

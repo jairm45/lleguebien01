@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -142,7 +142,7 @@ export default function InicioEstudiante() {
         {/* Botón para iniciar recorrido (Corregido) */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.push("/recorrido")} // 👈 Ruta corregida
+          onPress={() => router.push("/iniciar-recorrido")}
         >
           <MaterialCommunityIcons
             name="map-marker-path"

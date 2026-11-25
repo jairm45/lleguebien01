@@ -1,10 +1,35 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { SafeAreaView, Text, TouchableOpacity, View } from "react-native";
+import { useEffect } from "react";
+import {
+  ActivityIndicator,
+  SafeAreaView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { useSesion } from "../context/SesionContext";
 import { styles } from "../styles/WelcomeStyles";
 
 export default function WelcomeScreen() {
+  const { session, cargando } = useSesion();
+
+  useEffect(() => {
+    if (!cargando && session) {
+      router.replace("/estudiante/inicio");
+    }
+  }, [cargando, session]);
+
+  if (cargando || session) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color="#1ABC9C" size="large" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />

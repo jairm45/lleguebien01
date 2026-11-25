@@ -41,3 +41,9 @@ example
 # generated native folders
 /ios
 /android
+.agents
+.env
+/docs/*
+!/docs/migration-*.sql
+!/docs/seed-zonas-riesgo.sql
+/supabase/.temp/

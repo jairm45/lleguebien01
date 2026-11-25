@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -11,6 +11,12 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../services/supabase";
+import { olvidarRecorridoVerificado } from "../../services/recorridos";
+import { eliminarTokenPush } from "../../services/notificacionesPush";
+import {
+  limpiarColaOffline,
+  limpiarRecorridoActivoLocal,
+} from "../../services/colaOffline";
 import { styles } from "../../styles/PerfilStyles";
 
 export default function PerfilScreen() {
@@ -44,6 +50,11 @@ export default function PerfilScreen() {
   }, []);
 
   const cerrarSesion = async () => {
+    // Se elimina el token push mientras el JWT aún es válido.
+    await eliminarTokenPush();
+    await limpiarColaOffline();
+    await limpiarRecorridoActivoLocal();
+    await olvidarRecorridoVerificado();
     await supabase.auth.signOut();
     router.replace("/");
   };

@@ -8,7 +8,14 @@
     "scheme": "lleguebien01",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.freddy021.LlegueBien01",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "audio"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -37,6 +44,37 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      "expo-status-bar",
+      "@rnmapbox/maps",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "LlegueBien necesita tu ubicación para compartir tu recorrido en tiempo real.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true
+        }
+      ],
+      ["expo-notifications", { "enableBackgroundRemoteNotifications": true }],
+      "expo-asset",
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": ["arm64-v8a"],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
+            "extraProguardRules": "# @rnmapbox/maps: clases del wrapper invocadas desde el bridge de React Native\n-keep class com.rnmapbox.rnmbx.** { *; }\n# Mapbox: modelos GeoJSON usados por serialización/reflexión\n-keep class com.mapbox.geojson.** { *; }"
+          }
         }
       ]
     ],

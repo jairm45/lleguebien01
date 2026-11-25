@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
@@ -6,40 +6,60 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   Switch,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  crearCanalesNotificaciones,
+  registrarTokenPush,
+} from "../services/notificacionesPush";
 import { styles } from "../styles/PermisosStyles";
 
 export default function PermisosScreen() {
+  const insets = useSafeAreaInsets();
   const [ubicacion, setUbicacion] = useState(true);
   const [notificaciones, setNotificaciones] = useState(true);
   const [movimiento, setMovimiento] = useState(true);
 
   const pedirPermisos = async () => {
-    // 1. Pedir permiso de Ubicación
+    // 1. Ubicación en dos pasos: primer plano y luego segundo plano.
     if (ubicacion) {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      const foreground = await Location.requestForegroundPermissionsAsync();
+
+      if (foreground.status !== "granted") {
         Alert.alert(
           "Permiso denegado",
           "No podremos compartir tu ubicación si no lo permites.",
         );
+      } else {
+        const background = await Location.requestBackgroundPermissionsAsync();
+
+        if (background.status !== "granted") {
+          Alert.alert(
+            "Seguimiento con pantalla encendida",
+            "Sin el permiso 'Permitir todo el tiempo' el recorrido se comparte solo con la app abierta. Puedes activarlo después en Ajustes.",
+          );
+        }
       }
     }
 
-    // 2. Pedir permiso de Notificaciones
+    // 2. Crear canales Android antes del prompt y pedir permiso.
     if (notificaciones) {
+      await crearCanalesNotificaciones();
+
       const { status } = await Notifications.requestPermissionsAsync();
+
       if (status !== "granted") {
         Alert.alert(
           "Permiso denegado",
           "No podremos enviarte alertas si no lo permites.",
         );
+      } else {
+        void registrarTokenPush();
       }
     }
 
@@ -52,10 +72,10 @@ export default function PermisosScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <Text style={styles.headerTitle}>Permisos necesarios</Text>
           <Text style={styles.headerSubtitle}>
             Para protegerte necesitamos tu autorización.
@@ -140,7 +160,7 @@ export default function PermisosScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
         <TouchableOpacity style={styles.button} onPress={pedirPermisos}>
           <MaterialCommunityIcons name="check" size={20} color="#FFF" />
           <Text style={styles.buttonText}>Permitir todo</Text>
@@ -149,6 +169,6 @@ export default function PermisosScreen() {
           <Text style={styles.skipText}>Ahora no</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
