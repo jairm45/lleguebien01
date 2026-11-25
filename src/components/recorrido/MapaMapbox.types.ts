@@ -6,7 +6,10 @@ export type MapaMapboxProps = {
   zonas: FeatureCollection<Geometry>;
   rastro: number[][];
   ruta: Feature<LineString> | null;
-  destino: Coordenada & { nombre: string };
+  destino: (Coordenada & { nombre: string }) | null;
+  vistaFamiliar?: "seguimiento" | "emergencia";
+  encuadre?: number;
+  pulsar?: boolean;
   centroInicial: Coordenada;
   ubicacionActual: PosicionRecorrido | null;
   red: boolean;

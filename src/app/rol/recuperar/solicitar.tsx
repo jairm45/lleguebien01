@@ -1,18 +1,20 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { supabase } from "../../../services/supabase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../../../styles/RecuperarStyles";
 
 export default function SolicitarRecuperacion() {
+  const { rol } = useLocalSearchParams<{ rol?: string }>();
+  const margen = useSafeAreaInsets();
   const [correo, setCorreo] = useState("");
   const [cargando, setCargando] = useState(false);
 
@@ -27,13 +29,13 @@ export default function SolicitarRecuperacion() {
     else
       router.push({
         pathname: "/rol/recuperar/revisa-correo",
-        params: { correo },
+        params: { correo, rol },
       });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { paddingBottom: margen.bottom }]}>
+      <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
         <Text style={styles.headerTitle}>Recupera tu PIN</Text>
         <Text style={styles.headerSubtitle}>
           Te enviaremos un correo para crear uno nuevo.
@@ -49,7 +51,7 @@ export default function SolicitarRecuperacion() {
           />
           <TextInput
             style={styles.input}
-            placeholder="kelly@correo.com"
+            placeholder="Tu correo electrónico"
             value={correo}
             onChangeText={setCorreo}
             autoCapitalize="none"
@@ -81,6 +83,6 @@ export default function SolicitarRecuperacion() {
           <Text style={styles.backText}>Volver a iniciar sesión</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

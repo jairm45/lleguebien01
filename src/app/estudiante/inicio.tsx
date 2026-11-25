@@ -2,11 +2,14 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { SafeAreaView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ResumenSeguidores } from "../../components/ResumenSeguidores";
 import { supabase } from "../../services/supabase";
 import { styles } from "../../styles/InicioStyles";
 
 export default function InicioEstudiante() {
+  const insets = useSafeAreaInsets();
   const [nombre, setNombre] = useState("Estudiante");
 
   useEffect(() => {
@@ -30,10 +33,10 @@ export default function InicioEstudiante() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ flexGrow: 1 }}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.greeting}>Hola, {nombre}</Text>
         <Text style={styles.subtitle}>
           Hoy vuelves de la universidad a casa.
@@ -49,7 +52,7 @@ export default function InicioEstudiante() {
         </View>
       </View>
 
-      <View style={styles.body}>
+      <View style={[styles.body, { paddingBottom: 20 + insets.bottom }]}>
         {/* Tarjeta del recorrido */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -84,35 +87,7 @@ export default function InicioEstudiante() {
           </View>
         </View>
 
-        {/* Tarjeta de seguidores */}
-        <View style={styles.card}>
-          <View style={styles.followersRow}>
-            <View style={styles.avatars}>
-              <View
-                style={[
-                  styles.avatar,
-                  { backgroundColor: "#1ABC9C", marginLeft: 0 },
-                ]}
-              >
-                <Text style={styles.avatarText}>M</Text>
-              </View>
-              <View style={[styles.avatar, { backgroundColor: "#1A1E3C" }]}>
-                <Text style={styles.avatarText}>P</Text>
-              </View>
-              <View style={[styles.avatar, { backgroundColor: "#E5484D" }]}>
-                <Text style={styles.avatarText}>H</Text>
-              </View>
-            </View>
-            <Text style={styles.followersText}>
-              3 seguidores listos recibirán tu ubicación en vivo.
-            </Text>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color="#73799D"
-            />
-          </View>
-        </View>
+        <ResumenSeguidores />
 
         {/* 👇 NUEVO BOTÓN DE PERMISOS */}
         <TouchableOpacity
@@ -152,6 +127,6 @@ export default function InicioEstudiante() {
           <Text style={styles.buttonText}>Iniciar recorrido</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScrollView>
   );
 }

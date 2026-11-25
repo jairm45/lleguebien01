@@ -14,13 +14,25 @@ import { leerRecorridoVerificado, obtenerRecorridoActivo } from "../services/rec
 import { registrarTareaRecepcion } from "../tasks/backgroundLocationTask";
 
 export function useAccionesNotificacion(esperarRecorrido: boolean) {
-  const { session, cargando } = useSesion();
+  const { session, cargando, perfil, leyendoPerfil, errorPerfil } = useSesion();
+  const familiar = perfil?.rol === "seguidor";
   const navegador = useNavigationContainerRef();
   const ruta = usePathname();
   const rutaActual = useRef(ruta);
   const raiz = useRootNavigationState()?.key;
   const usuarioId = session?.user.id;
   const despertar = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (Platform.OS === "web" || !familiar) return;
+    Notifications.setNotificationHandler({
+      handleNotification: async n => {
+        const mostrar = typeof n.request.content.data?.alerta_id === "string";
+        return { shouldShowBanner: mostrar, shouldShowList: mostrar, shouldPlaySound: mostrar, shouldSetBadge: false };
+      },
+    });
+    return () => Notifications.setNotificationHandler(null);
+  }, [familiar]);
 
   useEffect(() => {
     rutaActual.current = ruta;
@@ -55,12 +67,22 @@ export function useAccionesNotificacion(esperarRecorrido: boolean) {
         if (!i || !vigente || (enPantalla?.clave === i.clave && enPantalla.hasta > Date.now())) return;
         const { datos, accion } = i;
         const recorridoId = String(datos.recorrido_id);
-        if (datos.alerta_id && accion === Notifications.DEFAULT_ACTION_IDENTIFIER) {
-          // Conserva el enlace de alerta para el seguidor, cuya sesión es distinta.
-          router.push({ pathname: "/recorrido/emergencia", params: { modo: String(datos.modo ?? "") } });
+        if (typeof datos.alerta_id === "string" && accion === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+          if (leyendoPerfil || errorPerfil) return;
+          if (familiar) {
+            if (!perfil?.ciudad || !perfil?.identificacion) return;
+            // S11 verifica el vínculo y ambos identificadores con RLS antes de dibujar el mapa.
+            router.navigate({ pathname: "/seguidor/emergencia", params: { recorridoId, alertaId: datos.alerta_id } });
+          } else {
+            const propio = await leerRecorridoVerificado(usuarioId);
+            if (!vigente) return;
+            if (propio?.id === recorridoId && propio.estado === "emergencia")
+              router.navigate({ pathname: "/recorrido/emergencia", params: { recorridoId, modo: String(datos.modo ?? "") } });
+          }
           await completarIntencion(i.clave);
           return;
         }
+        if (familiar) { await completarIntencion(i.clave); return; }
         const red = await Network.getNetworkStateAsync().catch(() => null);
         let enLinea = red?.isConnected !== false && red?.isInternetReachable !== false;
         let activo;
@@ -114,5 +136,5 @@ export function useAccionesNotificacion(esperarRecorrido: boolean) {
     void procesar();
     const intervalo = setInterval(procesar, 2000);
     return () => { vigente = false; clearInterval(intervalo); despertar.current = () => {}; };
-  }, [cargando, esperarRecorrido, navegador, raiz, usuarioId]);
+  }, [cargando, esperarRecorrido, navegador, raiz, usuarioId, familiar, leyendoPerfil, errorPerfil, perfil]);
 }

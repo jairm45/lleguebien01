@@ -97,7 +97,16 @@ export async function crearCanalesNotificaciones(): Promise<void> {
   );
 }
 
-export async function registrarTokenPush(): Promise<string | null> {
+let registroEnCurso: Promise<string | null> | null = null;
+let cerrandoSesion = false;
+
+export function registrarTokenPush(): Promise<string | null> {
+  if (cerrandoSesion) return Promise.resolve(null);
+  registroEnCurso ??= registrarDispositivo().finally(() => { registroEnCurso = null; });
+  return registroEnCurso;
+}
+
+async function registrarDispositivo(): Promise<string | null> {
   try {
     if (!Device.isDevice) return null;
 
@@ -143,8 +152,9 @@ export async function registrarTokenPush(): Promise<string | null> {
   }
 }
 
-export async function eliminarTokenPush(): Promise<void> {
+export async function eliminarTokenPush(estricto = false): Promise<void> {
   try {
+    await registroEnCurso;
     const token = await AsyncStorage.getItem(TOKEN_KEY);
 
     if (token) {
@@ -153,13 +163,26 @@ export async function eliminarTokenPush(): Promise<void> {
       });
 
       if (error) {
+        if (estricto) throw error;
         console.warn("[push] No se pudo eliminar el token", error.message);
       }
     }
 
     await AsyncStorage.removeItem(TOKEN_KEY);
   } catch (error) {
+    if (estricto) throw new Error("No se pudo desvincular este dispositivo. Revisa tu conexión y reintenta.");
     console.warn("[push] Error eliminando token", error);
+  }
+}
+
+export async function cerrarSesionSeguidor() {
+  cerrandoSesion = true;
+  try {
+    await eliminarTokenPush(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error("No se pudo cerrar la sesión.");
+  } finally {
+    cerrandoSesion = false;
   }
 }
 
