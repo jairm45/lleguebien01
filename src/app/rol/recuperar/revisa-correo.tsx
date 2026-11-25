@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView, Text, TouchableOpacity, View } from "react-native";
 import { styles } from "../../../styles/RecuperarStyles";

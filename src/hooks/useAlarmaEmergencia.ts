@@ -2,7 +2,7 @@ import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import { useEffect } from "react";
 import { Platform, Vibration } from "react-native";
 
-const ALARMA = require("../../assets/audio/alarma.wav");
+const ALARMA = require("../../assets/audio/alarma.m4a");
 
 export function useAlarmaEmergencia(activa: boolean, modo: "sonoro" | "silencioso" | null) {
   const player = useAudioPlayer(ALARMA);

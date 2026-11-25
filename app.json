@@ -47,7 +47,6 @@
         }
       ],
       "expo-status-bar",
-      "expo-web-browser",
       "@rnmapbox/maps",
       [
         "expo-location",
@@ -65,7 +64,19 @@
       ],
       ["expo-notifications", { "enableBackgroundRemoteNotifications": true }],
       "expo-asset",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": ["arm64-v8a"],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
+            "extraProguardRules": "# @rnmapbox/maps: clases del wrapper invocadas desde el bridge de React Native\n-keep class com.rnmapbox.rnmbx.** { *; }\n# Mapbox: modelos GeoJSON usados por serialización/reflexión\n-keep class com.mapbox.geojson.** { *; }"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -902,13 +902,13 @@ notify pgrst, 'reload schema';
 commit;
 
 
--- Activación operativa después de desplegar las dos Edge Functions y configurar Vault.
--- El primer trabajo evalúa los vencimientos en la base. El segundo despacha la bandeja.
--- select cron.schedule('evaluar-checkins-pasivos','1 second','select public.evaluar_checkins_pasivos()');
--- select cron.schedule('monitor-recorridos-pasivos','10 seconds', $trabajo$
---   select net.http_post(
---     url := 'https://kbthjrgbrkzbzmnrarnp.supabase.co/functions/v1/monitor-recorridos-pasivos',
---     headers := jsonb_build_object('Content-Type','application/json','x-cron-secret',
---       (select decrypted_secret from vault.decrypted_secrets where name='monitor_cron_secret')),
---     body := '{}'::jsonb, timeout_milliseconds := 30000);
--- $trabajo$);
+ Activación operativa después de desplegar las dos Edge Functions y configurar Vault.
+ El primer trabajo evalúa los vencimientos en la base. El segundo despacha la bandeja.
+ select cron.schedule('evaluar-checkins-pasivos','1 second','select public.evaluar_checkins_pasivos()');
+ select cron.schedule('monitor-recorridos-pasivos','10 seconds', $trabajo$
+   select net.http_post(
+     url := 'https://kbthjrgbrkzbzmnrarnp.supabase.co/functions/v1/monitor-recorridos-pasivos',
+     headers := jsonb_build_object('Content-Type','application/json','x-cron-secret',
+       (select decrypted_secret from vault.decrypted_secrets where name='monitor_cron_secret')),
+     body := '{}'::jsonb, timeout_milliseconds := 30000);
+ $trabajo$);

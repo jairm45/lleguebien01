@@ -1,0 +1,226 @@
+name: Release APK Android
+
+# Compila el APK directamente con Gradle (sin consumir builds de EAS) y lo publica
+# en GitHub Releases. Se dispara de dos formas:
+#   1. Push de un tag que empiece por "v" (ej. v0.3.0-fase3b).
+#   2. Ejecución manual desde Actions (workflow_dispatch) eligiendo el perfil.
+#
+# Los APK quedan siempre descargables en:
+#   https://github.com/<owner>/<repo>/releases/latest/download/LlegueBien01-preview.apk
+#   https://github.com/<owner>/<repo>/releases/latest/download/LlegueBien01-development.apk
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Perfil de compilación (preview = APK standalone optimizado; development = dev-client)"
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - development
+      release_notes:
+        description: "Notas de la versión (opcional)"
+        type: string
+        required: false
+
+# Necesario para crear/actualizar Releases y subir assets.
+permissions:
+  contents: write
+
+# Evita dos builds simultáneos publicando sobre el mismo release rodante.
+concurrency:
+  group: release-apk
+  cancel-in-progress: false
+
+jobs:
+  build-apk:
+    name: Compilar APK (${{ github.event.inputs.profile || 'preview' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      CI: "true"
+      EXPO_NO_TELEMETRY: "1"
+      PROFILE: ${{ github.event.inputs.profile || 'preview' }}
+      # Se inyectan en el bundle JS en tiempo de compilación (Metro).
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_MAPBOX_TOKEN: ${{ secrets.EXPO_PUBLIC_MAPBOX_TOKEN }}
+      # Token secreto (sk...) para descargar los AAR de Mapbox desde su Maven.
+      RNMAPBOX_MAPS_DOWNLOAD_TOKEN: ${{ secrets.RNMAPBOX_MAPS_DOWNLOAD_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Configurar caché de Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar TypeScript
+        run: npx tsc --noEmit
+
+      - name: Preparar google-services.json (opcional)
+        # Guarda el contenido del archivo en base64 en el secreto GOOGLE_SERVICES_JSON_B64.
+        # Si el secreto no existe, el build continúa (las push notifications de FCM
+        # no funcionarán en ese APK, pero la app compila).
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "::warning::GOOGLE_SERVICES_JSON_B64 no configurado; el APK se compilará sin FCM."
+            exit 0
+          fi
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > "$RUNNER_TEMP/google-services.json"
+          node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$RUNNER_TEMP/google-services.json"
+          echo "GOOGLE_SERVICES_JSON=$RUNNER_TEMP/google-services.json" >> "$GITHUB_ENV"
+
+      - name: Ajustar versión y versionCode
+        # versionName sale del tag (v0.3.0-fase3b -> 0.3.0) y versionCode del
+        # número de ejecución, para que Android permita actualizar sobre el APK anterior.
+        run: |
+          VERSION="1.0.0"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            PARSED="$(echo "$TAG" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || true)"
+            if [ -n "$PARSED" ]; then VERSION="$PARSED"; fi
+          fi
+          node -e '
+            const fs = require("fs");
+            const path = "app.json";
+            const config = JSON.parse(fs.readFileSync(path, "utf8"));
+            config.expo.version = process.argv[1];
+            config.expo.android = { ...config.expo.android, versionCode: Number(process.argv[2]) };
+            fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n");
+          ' "$VERSION" "${{ github.run_number }}"
+          echo "Versión: $VERSION (versionCode ${{ github.run_number }})"
+
+      - name: Generar proyecto Android (prebuild)
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Compilar APK
+        # preview/production -> release (R8 + shrinkResources + arm64-v8a).
+        # development -> debug, porque el dev-launcher de expo-dev-client se
+        # deshabilita automáticamente en builds release.
+        run: |
+          cd android
+          GRADLE_ARGS=(--no-daemon --stacktrace '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g')
+          if [ "$PROFILE" = "development" ]; then
+            ./gradlew assembleDebug "${GRADLE_ARGS[@]}"
+          else
+            ./gradlew assembleRelease "${GRADLE_ARGS[@]}"
+          fi
+
+      - name: Renombrar y verificar APK
+        id: apk
+        run: |
+          if [ "$PROFILE" = "development" ]; then
+            SOURCE="android/app/build/outputs/apk/debug/app-debug.apk"
+          else
+            SOURCE="android/app/build/outputs/apk/release/app-release.apk"
+          fi
+          DEST="LlegueBien01-${PROFILE}.apk"
+          cp "$SOURCE" "$DEST"
+          SIZE_MB="$(du -m "$DEST" | cut -f1)"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+          echo "size_mb=$SIZE_MB" >> "$GITHUB_OUTPUT"
+          echo "APK: $DEST (${SIZE_MB} MB)"
+
+      - name: Subir APK como artefacto
+        uses: actions/upload-artifact@v7
+        with:
+          name: LlegueBien01-${{ env.PROFILE }}-${{ github.run_number }}
+          path: ${{ steps.apk.outputs.path }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Preparar notas de la versión
+        env:
+          INPUT_NOTES: ${{ github.event.inputs.release_notes }}
+        run: |
+          COMMIT_SHORT="$(git rev-parse --short HEAD)"
+          {
+            echo "APK **$PROFILE** generado automáticamente desde \`${GITHUB_REF_NAME}\` (\`${COMMIT_SHORT}\`)."
+            echo
+            if [ -n "$INPUT_NOTES" ]; then
+              echo "$INPUT_NOTES"
+              echo
+            fi
+            echo "### Instalación"
+            echo '1. Descarga `LlegueBien01-'"$PROFILE"'.apk`.'
+            echo "2. Habilita \"Instalar apps desconocidas\" para tu navegador o gestor de archivos."
+            echo "3. Instala y abre la app."
+            echo
+            echo "Tamaño: **${{ steps.apk.outputs.size_mb }} MB** · Arquitectura: **arm64-v8a** (configurable en \`app.json\`)."
+          } > "$RUNNER_TEMP/version-notes.md"
+
+          {
+            echo "APK más reciente de LleguéBien (perfil **$PROFILE**)."
+            echo
+            echo "Descarga directa:"
+            echo 'https://github.com/'"${GITHUB_REPOSITORY}"'/releases/latest/download/LlegueBien01-'"$PROFILE"'.apk'
+            echo
+            echo "Origen: \`${GITHUB_REF_NAME}\` (\`${COMMIT_SHORT}\`) · Tamaño: **${{ steps.apk.outputs.size_mb }} MB**."
+          } > "$RUNNER_TEMP/rolling-notes.md"
+
+      - name: Publicar Release del tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: LleguéBien ${{ github.ref_name }}
+          body_path: ${{ runner.temp }}/version-notes.md
+          files: ${{ steps.apk.outputs.path }}
+          draft: false
+          prerelease: false
+          make_latest: false
+          fail_on_unmatched_files: true
+
+      - name: Actualizar release rodante latest-apk
+        # Publica siempre en el mismo tag para tener una URL fija y permanente.
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: latest-apk
+          target_commitish: ${{ github.sha }}
+          name: APK más reciente
+          body_path: ${{ runner.temp }}/rolling-notes.md
+          files: ${{ steps.apk.outputs.path }}
+          draft: false
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: true
+
+      - name: Resumen del build
+        run: |
+          {
+            echo "## APK publicado"
+            echo
+            echo "- Perfil: \`$PROFILE\`"
+            echo "- Tamaño: **${{ steps.apk.outputs.size_mb }} MB**"
+            echo "- Artefacto: \`${{ steps.apk.outputs.path }}\`"
+            echo "- Descarga fija: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/LlegueBien01-${PROFILE}.apk"
+          } >> "$GITHUB_STEP_SUMMARY"

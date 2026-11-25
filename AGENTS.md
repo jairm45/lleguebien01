@@ -11,10 +11,11 @@ Mobile app (Expo SDK 58, React Native 0.88, React 19.3, Expo Router, Supabase, M
   - Migración aplicada en Supabase (`docs/migration-fase3a-emergencias-fifo.sql`, proyecto `kbthjrgbrkzbzmnrarnp`): soporte de estado `'emergencia'`, `captured_at`, `client_event_id`, `alertas.modo`, 4 tipos de alerta, 6 RPCs, políticas RLS e índice `dispositivos_push_expo_push_token_key`.
   - Cola offline FIFO en SQLite (`src/services/colaOffline.ts`) con prioridades (emergencias antes que GPS), mutex, reintentos y descarte de eventos venenosos.
   - Tracking en segundo plano (`src/tasks/backgroundLocationTask.ts`), contextos compartidos (`src/context/RecorridoContext.tsx`, `src/context/SesionContext.tsx`), servicios `src/services/emergencias.ts` y `src/services/notificacionesPush.ts`.
-  - Pantallas E11 (`cuenta-regresiva.tsx`), E12 (`sos.tsx`, modo sonoro o silencioso), E13 (`emergencia.tsx`), hooks `src/hooks/useAlarmaEmergencia.ts` y `src/hooks/useDetectorSacudidas.ts`, lógica `src/lib/shake.ts`, audio `assets/audio/alarma.wav`, permisos en dos pasos + canales Android (`src/app/permisos.tsx`), limpieza de token al cerrar sesión (`src/app/estudiante/perfil.tsx`) y Edge Function `supabase/functions/enviar-alerta/index.ts`.
-  - Pendientes operativos de 3A: desplegar `enviar-alerta` en Supabase y recompilar el Development Build porque se agregaron dependencias nativas (`expo-sqlite`, `expo-network`, `expo-device`, `expo-clipboard`).
+  - Pantallas E11 (`cuenta-regresiva.tsx`), E12 (`sos.tsx`, modo sonoro o silencioso), E13 (`emergencia.tsx`), hooks `src/hooks/useAlarmaEmergencia.ts` y `src/hooks/useDetectorSacudidas.ts`, lógica `src/lib/shake.ts`, audio `assets/audio/alarma.m4a`, permisos en dos pasos + canales Android (`src/app/permisos.tsx`), limpieza de token al cerrar sesión (`src/app/estudiante/perfil.tsx`) y Edge Function `supabase/functions/enviar-alerta/index.ts`.
+  - Pendientes operativos de 3A: desplegar `enviar-alerta` en Supabase y recompilar el Development Build porque se agregaron dependencias nativas (`expo-sqlite`, `expo-network`, `expo-device`).
 - **Fase 3B (A medias — requiere auditoría antes de continuar):** Quedó interrumpida por límite de cuota de OpenCode. Alcance esperado: botón/acción rápida SOS desde la notificación persistente en segundo plano y monitor pasivo _"¿Estás bien?"_ (ante retrasos, pérdida de señal o parada prolongada en zona de riesgo, siempre con confirmación local antes de escalar al seguidor).
 - **Fase 4 (Pendiente al final):** Rol seguidor (auth sin restringir exclusivamente a `@unipacifico.edu.co`, vinculación por código vía RPC, vista de seguimiento en vivo reutilizando `MapaMapbox` + Supabase Realtime y envío push + correo unificado en `enviar-alerta` vía Resend).
+- **Infra de release (Completada):** APK Android optimizado con `expo-build-properties` (solo `arm64-v8a`, R8, `shrinkResources`, PNG crunch) y workflow `.github/workflows/release-apk.yml` que compila con Gradle en GitHub Actions y publica en GitHub Releases (tag `v*` + release rodante `latest-apk`). Guía completa en `RELEASES.md`.
 
 ## Commands
 
@@ -27,10 +28,15 @@ npx tsc --noEmit                                                   # typecheck �
 npx expo-doctor                                                    # project health check (20/20)
 npx eas-cli@latest build --profile development --platform android  # rebuild dev build when native deps/plugins change
 npx supabase functions deploy enviar-alerta --project-ref kbthjrgbrkzbzmnrarnp
+
+# APK release optimizado compilado localmente (mismo camino que el workflow de GitHub)
+npx expo prebuild --platform android --clean
+cd android && ./gradlew assembleRelease                            # → android/app/build/outputs/apk/release/app-release.apk
 ```
 
 - `npm run lint` (`expo lint`) is **not usable yet**: there is no ESLint config or dependency. Do not treat lint as part of verification unless intentionally configuring ESLint.
 - There is no automated test runner. Verify changes with `npx tsc --noEmit`, `npx expo-doctor`, and manual testing on a Development Build.
+- Releases de APK: `RELEASES.md` (secrets, tags `v*`, release rodante `latest-apk` y URLs fijas de descarga). El workflow no usa EAS, compila con Gradle.
 - `README.md` is the stock `create-expo-app` template and is stale; trust `package.json`, `app.json`, `docs/*.sql`, and this file instead.
 
 ## Architecture & PostGIS / Offline Rules
@@ -54,6 +60,7 @@ npx supabase functions deploy enviar-alerta --project-ref kbthjrgbrkzbzmnrarnp
 - Push tokens in `dispositivos_push` have a global unique constraint (`expo_push_token`); always clean up via `eliminar_token_push` on sign-out and upsert cleanly on sign-in.
 - `app.json` enables `typedRoutes` and `reactCompiler`. Route types live in gitignored `.expo/types/router.d.ts`; restart dev server if route types look stale after adding routes.
 - Use `useSafeAreaInsets` from `react-native-safe-area-context` instead of React Native's `SafeAreaView` on new/updated screens.
+- Importar iconos desde el subpath (`import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons"`), **no** desde `@expo/vector-icons`: el import raíz empaqueta las ~20 fuentes tipográficas (~3 MB extra en el APK).
 - Color palette: navy `#1A1E3C`, orange `#F5A623`, teal `#1ABC9C`, red `#E5484D`, muted gray `#73799D`.
 
 ## Expo / Build Rules
@@ -61,6 +68,7 @@ npx supabase functions deploy enviar-alerta --project-ref kbthjrgbrkzbzmnrarnp
 - Mapbox (`@rnmapbox/maps`), background location, audio, and push notifications require a **Development Build (`expo-dev-client`)** — do not test in Expo Go.
 - Check Expo SDK 58 docs (`https://docs.expo.dev/versions/v58.0.0/` and `https://docs.expo.dev/llms.txt`) before modifying Expo/RN native APIs.
 - `ios/` and `android/` are not checked in (Continuous Native Generation). Never create or edit them manually; configure native behavior in `app.json` and config plugins.
+- **Tamaño del APK:** `app.json` usa `expo-build-properties` con `buildArchs: ["arm64-v8a"]`, R8 (`enableMinifyInReleaseBuilds`), `enableShrinkResourcesInReleaseBuilds` y PNG crunch. Si se necesita soportar Android de 32 bits, agregar `"armeabi-v7a"` a `buildArchs` (ver `RELEASES.md`). Los APK de GitHub Releases se firman con el keystore de debug: sirven para sideload, no para Play Store.
 - Do not install new native dependencies without explicitly notifying the user (they require rebuilding the EAS Development Build).
 - Never run `npm run reset-project` (`scripts/reset-project.js` removes/moves `src/` and `scripts/`).
 - `.agents/` and `skills-lock.json` hold locally installed agent skills; `.agents/` is gitignored and not part of the app.
