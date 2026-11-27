@@ -6,12 +6,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { RequisitosRecorrido } from "../components/recorrido/RequisitosRecorrido";
 import {
@@ -29,6 +29,7 @@ import {
 import { obtenerRutaPeatonal } from "../services/mapboxDirections";
 import { crearRecorrido } from "../services/recorridos";
 import { obtenerSeguidoresActivos } from "../services/seguidores";
+import { cabeceraEstudiante } from "../styles/CabeceraEstudianteStyles";
 import { styles } from "../styles/IniciarRecorridoStyles";
 
 const COLORES_AVATAR = ["#1ABC9C", "#1A1E3C", "#E5484D", "#F5A623"];
@@ -52,6 +53,7 @@ function aSeleccion(destino: DestinoGuardado): DestinoSeleccionado {
 }
 
 export default function IniciarRecorrido() {
+  const insets = useSafeAreaInsets();
   const {
     requisitosOk,
     faltantes,
@@ -276,8 +278,9 @@ export default function IniciarRecorrido() {
     !iniciando;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
+      <View style={[cabeceraEstudiante.fondo, { height: insets.top }]} />
       <ScrollView bounces={false}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Iniciar recorrido</Text>
@@ -597,6 +600,6 @@ export default function IniciarRecorrido() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -4,17 +4,20 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../services/supabase";
+import { CabeceraRegistroEstudiante } from "../components/CabeceraRegistroEstudiante";
+import { cabeceraEstudiante } from "../styles/CabeceraEstudianteStyles";
 import { styles } from "../styles/DatosPersonalesStyles";
 
 export default function DatosPersonales() {
+  const insets = useSafeAreaInsets();
   const [identificacion, setIdentificacion] = useState("");
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -64,19 +67,15 @@ export default function DatosPersonales() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
+      <View style={[cabeceraEstudiante.fondo, { height: insets.top }]} />
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Datos personales</Text>
-          <Text style={styles.headerSubtitle}>Cuéntanos quién eres.</Text>
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressText}>Paso 1 de 2</Text>
-            <View style={styles.progressBarBackground}>
-              <View style={styles.progressBarFill} />
-            </View>
-          </View>
-        </View>
+        <CabeceraRegistroEstudiante
+          titulo="Datos personales"
+          subtitulo="Cuéntanos quién eres."
+          paso={1}
+        />
 
         <View style={styles.body}>
           <Text style={styles.label}>Número de identificación</Text>
@@ -156,6 +155,6 @@ export default function DatosPersonales() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

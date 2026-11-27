@@ -1,26 +1,26 @@
 import { StyleSheet } from "react-native";
+import { cabeceraEstudiante } from "./CabeceraEstudianteStyles";
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
   header: {
-    backgroundColor: "#1A1E3C",
-    paddingTop: 50,
+    ...cabeceraEstudiante.fondo,
+    ...cabeceraEstudiante.bordes,
+    paddingTop: 24,
     paddingHorizontal: 25,
     paddingBottom: 30,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
   },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#FFF" },
   headerSubtitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
+    color: "#D8DAEF",
     marginTop: 5,
   },
   body: { padding: 25, flex: 1 },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#20234F",
+    color: "#1A1E3C",
     marginTop: 20,
     marginBottom: 10,
   },
@@ -37,7 +37,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 15,
   },
-  label: { fontSize: 14, color: "#20234F", fontWeight: "600" },
+  label: { fontSize: 14, color: "#1A1E3C", fontWeight: "600" },
   value: { fontSize: 16, color: "#1ABC9C", fontWeight: "700" },
   stepper: { flexDirection: "row", alignItems: "center", gap: 15 },
   stepButton: {
@@ -60,7 +60,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     marginTop: 10,
   },
-  input: { flex: 1, fontSize: 15, color: "#20234F" },
+  input: { flex: 1, fontSize: 15, color: "#1A1E3C" },
   button: {
     backgroundColor: "#1ABC9C",
     flexDirection: "row",

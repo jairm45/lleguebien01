@@ -1,8 +1,15 @@
 import { StyleSheet } from "react-native";
+import { cabeceraEstudiante } from "./CabeceraEstudianteStyles";
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
-  header: { backgroundColor: "#1A1E3C", padding: 20, gap: 6 },
+  header: {
+    ...cabeceraEstudiante.fondo,
+    ...cabeceraEstudiante.bordes,
+    paddingHorizontal: 25,
+    paddingBottom: 24,
+    gap: 6,
+  },
   title: { color: "#FFF", fontWeight: "800", fontSize: 26 },
   subtitle: { color: "#D8DAEF", fontSize: 15 },
   body: { padding: 20, gap: 12 },

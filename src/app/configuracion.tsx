@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { supabase } from "../services/supabase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { cabeceraEstudiante } from "../styles/CabeceraEstudianteStyles";
 import { styles } from "../styles/ConfiguracionStyles";
 
 export default function ConfiguracionScreen() {
@@ -97,6 +98,7 @@ export default function ConfiguracionScreen() {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
+      <View style={[cabeceraEstudiante.fondo, { height: insets.top }]} />
       {/* 👇 KeyboardAvoidingView para que el teclado no tape los campos */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -108,7 +110,7 @@ export default function ConfiguracionScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ flexGrow: 1 }}
         >
-          <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.header}>
             <Text style={styles.headerTitle}>Configuración</Text>
             <Text style={styles.headerSubtitle}>
               Ajusta cómo funciona la alerta de emergencia.

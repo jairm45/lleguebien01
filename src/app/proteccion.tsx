@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ResumenSeguidores } from "../components/ResumenSeguidores";
+import { cabeceraEstudiante } from "../styles/CabeceraEstudianteStyles";
 import { styles } from "../styles/ProteccionStyles";
 
 export default function ProteccionScreen() {
@@ -16,9 +17,10 @@ export default function ProteccionScreen() {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
+      <View style={[cabeceraEstudiante.fondo, { height: insets.top }]} />
       <ScrollView bounces={false}>
         {/* Cabecera Azul */}
-        <View style={[styles.header, { paddingTop: insets.top + 24 }]}>
+        <View style={styles.header}>
           {/* 👇 BOTÓN DE CONFIGURACIÓN (ENGRANAJE) */}
           <TouchableOpacity
             onPress={() => router.push("/configuracion")}

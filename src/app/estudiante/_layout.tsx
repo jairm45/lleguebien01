@@ -1,19 +1,22 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function EstudianteLayout() {
+  const { bottom } = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#1A1E3C",
-        tabBarInactiveTintColor: "#A6AACD",
+        tabBarInactiveTintColor: "#666C8B",
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
           borderTopColor: "#F0F0F0",
-          height: 70,
-          paddingBottom: 10,
+          height: 70 + bottom,
+          paddingBottom: 10 + bottom,
           paddingTop: 10,
         },
       }}

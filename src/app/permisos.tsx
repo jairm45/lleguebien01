@@ -17,6 +17,7 @@ import {
   crearCanalesNotificaciones,
   registrarTokenPush,
 } from "../services/notificacionesPush";
+import { cabeceraEstudiante } from "../styles/CabeceraEstudianteStyles";
 import { styles } from "../styles/PermisosStyles";
 
 export default function PermisosScreen() {
@@ -74,8 +75,9 @@ export default function PermisosScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
+      <View style={[cabeceraEstudiante.fondo, { height: insets.top }]} />
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.header}>
           <Text style={styles.headerTitle}>Permisos necesarios</Text>
           <Text style={styles.headerSubtitle}>
             Para protegerte necesitamos tu autorización.

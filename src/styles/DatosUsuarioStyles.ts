@@ -1,41 +1,13 @@
 import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5" },
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
   scroll: { flexGrow: 1, paddingBottom: 100 },
-  header: {
-    backgroundColor: "#F5A623",
-    paddingTop: 50,
-    paddingHorizontal: 25,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  headerTitle: { fontSize: 28, fontWeight: "800", color: "#FFFFFF" },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#FFFFFF",
-    opacity: 0.9,
-    marginTop: 5,
-  },
-  progressContainer: { marginTop: 20 },
-  progressText: { fontSize: 10, color: "#FFFFFF", marginBottom: 5 },
-  progressBarBackground: {
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    borderRadius: 3,
-  },
-  progressBarFill: {
-    height: 6,
-    backgroundColor: "#1ABC9C",
-    borderRadius: 3,
-    width: "100%",
-  },
   body: { padding: 25 },
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#20234F",
+    color: "#1A1E3C",
     marginBottom: 8,
     marginTop: 15,
   },
@@ -50,7 +22,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   icon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 15, color: "#20234F" },
+  input: { flex: 1, fontSize: 15, color: "#1A1E3C" },
   footer: {
     position: "absolute",
     bottom: 0,

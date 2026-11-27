@@ -1,14 +1,15 @@
 import { StyleSheet } from "react-native";
+import { cabeceraEstudiante } from "./CabeceraEstudianteStyles";
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
   header: {
-    backgroundColor: "#F5A623",
-    paddingTop: 50,
+    ...cabeceraEstudiante.fondo,
+    ...cabeceraEstudiante.bordes,
+    paddingTop: 24,
+    paddingHorizontal: 25,
     paddingBottom: 30,
     alignItems: "center",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
   },
   avatarCircle: {
     width: 80,
@@ -18,12 +19,12 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: "#D98700",
+    borderColor: "#D8DAEF",
     marginBottom: 10,
   },
   avatarText: { fontSize: 32, fontWeight: "800", color: "#1A1E3C" },
-  name: { fontSize: 24, fontWeight: "800", color: "#FFF" },
-  role: { fontSize: 14, color: "rgba(255,255,255,0.9)", marginTop: 5 },
+  name: { fontSize: 24, fontWeight: "800", color: "#FFF", textAlign: "center" },
+  role: { fontSize: 14, color: "#D8DAEF", marginTop: 5 },
   body: { padding: 20, flex: 1 },
   infoCard: {
     flexDirection: "row",
@@ -42,13 +43,13 @@ export const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#FFF3DF",
+    backgroundColor: "#F0F3FA",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 15,
   },
   infoLabel: { fontSize: 14, color: "#1A1E3C", fontWeight: "600", flex: 1 },
-  infoValue: { fontSize: 14, color: "#73799D", fontWeight: "500" },
+  infoValue: { fontSize: 14, color: "#535978", fontWeight: "500", flexShrink: 1, textAlign: "right" },
   button: {
     backgroundColor: "#FFF",
     borderWidth: 1,
@@ -57,13 +58,14 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     height: 56,
+    gap: 8,
     borderRadius: 16,
     marginTop: 20,
   },
   buttonText: { color: "#1A1E3C", fontSize: 16, fontWeight: "700" },
   logoutText: {
     textAlign: "center",
-    color: "#E5484D",
+    color: "#B4232C",
     marginTop: 15,
     fontSize: 14,
     fontWeight: "600",

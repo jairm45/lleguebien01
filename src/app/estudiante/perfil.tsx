@@ -4,12 +4,12 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../services/supabase";
 import { olvidarRecorridoVerificado } from "../../services/recorridos";
 import { eliminarTokenPush } from "../../services/notificacionesPush";
@@ -17,9 +17,11 @@ import {
   limpiarColaOffline,
   limpiarRecorridoActivoLocal,
 } from "../../services/colaOffline";
+import { cabeceraEstudiante } from "../../styles/CabeceraEstudianteStyles";
 import { styles } from "../../styles/PerfilStyles";
 
 export default function PerfilScreen() {
+  const insets = useSafeAreaInsets();
   const [perfil, setPerfil] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -66,23 +68,22 @@ export default function PerfilScreen() {
   if (cargando) {
     return (
       <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#1A1E3C",
-        }}
+        style={[
+          cabeceraEstudiante.fondo,
+          { flex: 1, justifyContent: "center", alignItems: "center" },
+        ]}
       >
+        <StatusBar style="light" />
         <Text style={{ color: "#FFF" }}>Cargando perfil...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar style="light" />
+      <View style={[cabeceraEstudiante.fondo, { height: insets.top }]} />
       <ScrollView bounces={false}>
-        {/* Cabecera Naranja */}
         <View style={styles.header}>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>{inicial}</Text>
@@ -95,7 +96,7 @@ export default function PerfilScreen() {
           {/* País */}
           <View style={styles.infoCard}>
             <View style={styles.iconContainer}>
-              <MaterialCommunityIcons name="earth" size={20} color="#F5A623" />
+              <MaterialCommunityIcons name="earth" size={20} color="#1A1E3C" />
             </View>
             <Text style={styles.infoLabel}>País</Text>
             <Text style={styles.infoValue}>
@@ -109,7 +110,7 @@ export default function PerfilScreen() {
               <MaterialCommunityIcons
                 name="map-marker-outline"
                 size={20}
-                color="#F5A623"
+                color="#1A1E3C"
               />
             </View>
             <Text style={styles.infoLabel}>Ciudad</Text>
@@ -124,7 +125,7 @@ export default function PerfilScreen() {
               <MaterialCommunityIcons
                 name="phone-outline"
                 size={20}
-                color="#F5A623"
+                color="#1A1E3C"
               />
             </View>
             <Text style={styles.infoLabel}>Teléfono</Text>
@@ -139,7 +140,7 @@ export default function PerfilScreen() {
               <MaterialCommunityIcons
                 name="school-outline"
                 size={20}
-                color="#F5A623"
+                color="#1A1E3C"
               />
             </View>
             <Text style={styles.infoLabel}>Universidad</Text>
@@ -154,10 +155,10 @@ export default function PerfilScreen() {
               <MaterialCommunityIcons
                 name="home-outline"
                 size={20}
-                color="#F5A623"
+                color="#1A1E3C"
               />
             </View>
-            <Text style={styles.infoLabel}>Hogar</Text>
+            <Text style={styles.infoLabel}>Dirección</Text>
             <Text style={styles.infoValue}>
               {perfil?.direccion || "No registrado"}
             </Text>
@@ -165,10 +166,12 @@ export default function PerfilScreen() {
 
           {/* 👇 BOTÓN DE EDITAR DATOS */}
           <TouchableOpacity
+            accessibilityRole="button"
             style={styles.button}
             onPress={() => router.push("/editar-perfil")}
           >
-            <Text style={styles.buttonText}>Editar datos</Text>
+            <MaterialCommunityIcons name="pencil-outline" size={20} color="#1A1E3C" />
+            <Text style={styles.buttonText}>Editar perfil</Text>
           </TouchableOpacity>
 
           {/* Botón Cerrar Sesión */}
@@ -177,6 +180,6 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

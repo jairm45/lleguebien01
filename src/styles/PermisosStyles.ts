@@ -1,20 +1,20 @@
 import { StyleSheet } from "react-native";
+import { cabeceraEstudiante } from "./CabeceraEstudianteStyles";
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
   scroll: { flexGrow: 1, paddingBottom: 20 },
   header: {
-    backgroundColor: "#1A1E3C",
-    paddingTop: 50,
+    ...cabeceraEstudiante.fondo,
+    ...cabeceraEstudiante.bordes,
+    paddingTop: 24,
     paddingHorizontal: 25,
     paddingBottom: 30,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
   },
   headerTitle: { fontSize: 28, fontWeight: "800", color: "#FFF" },
   headerSubtitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
+    color: "#D8DAEF",
     marginTop: 5,
   },
   body: { padding: 20, flex: 1 },
@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
     marginRight: 15,
   },
   cardText: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: "#20234F" },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: "#1A1E3C" },
   cardDescription: { fontSize: 12, color: "#73799D", marginTop: 2 },
   privacyNote: {
     flexDirection: "row",

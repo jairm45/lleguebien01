@@ -89,9 +89,9 @@ function GestionSeguidores() {
     { title: "Invitaciones pendientes", data: (vinculos ?? []).filter(v => v.estado === "pendiente") },
   ].filter(s => s.data.length > 0);
 
-  return <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+  return <View style={styles.container}>
     <StatusBar style="light" />
-    <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+    <View style={[styles.header, { paddingTop: insets.top + 24 }]}>
       <Text style={styles.title}>Mis seguidores</Text>
       <Text style={styles.subtitle}>Elige quién puede acompañar tus recorridos.</Text>
     </View>

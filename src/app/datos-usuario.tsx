@@ -13,6 +13,8 @@ import {
 import { supabase } from "../services/supabase";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSesion } from "../context/SesionContext";
+import { CabeceraRegistroEstudiante } from "../components/CabeceraRegistroEstudiante";
+import { cabeceraEstudiante } from "../styles/CabeceraEstudianteStyles";
 import { styles } from "../styles/DatosUsuarioStyles";
 
 export default function DatosUsuario() {
@@ -65,19 +67,13 @@ export default function DatosUsuario() {
   return (
     <View style={[styles.container, { paddingBottom: margen.bottom }]}>
       <StatusBar style="light" />
+      <View style={[cabeceraEstudiante.fondo, { height: margen.top }]} />
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
-        <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
-          <Text style={styles.headerTitle}>Ubicación y estudios</Text>
-          <Text style={styles.headerSubtitle}>
-            Último paso antes de empezar.
-          </Text>
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressText}>Paso 2 de 2</Text>
-            <View style={styles.progressBarBackground}>
-              <View style={styles.progressBarFill} />
-            </View>
-          </View>
-        </View>
+        <CabeceraRegistroEstudiante
+          titulo="Ubicación y estudios"
+          subtitulo="Último paso antes de empezar."
+          paso={2}
+        />
 
         <View style={styles.body}>
           <Text style={styles.label}>País</Text>
@@ -150,7 +146,7 @@ export default function DatosUsuario() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: 20 + margen.bottom }]}>
         <TouchableOpacity
           style={styles.saveButton}
           onPress={guardarDatos}

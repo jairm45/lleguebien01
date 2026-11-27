@@ -4,17 +4,19 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../services/supabase";
+import { cabeceraEstudiante } from "../styles/CabeceraEstudianteStyles";
 import { styles } from "../styles/EditarPerfilStyles";
 
 export default function EditarPerfil() {
+  const insets = useSafeAreaInsets();
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [pais, setPais] = useState("");
   const [ciudad, setCiudad] = useState("");
@@ -82,22 +84,26 @@ export default function EditarPerfil() {
   if (cargando) {
     return (
       <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#1A1E3C",
-        }}
+        style={[
+          cabeceraEstudiante.fondo,
+          { flex: 1, justifyContent: "center", alignItems: "center" },
+        ]}
       >
+        <StatusBar style="light" />
         <Text style={{ color: "#FFF" }}>Cargando datos...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <View style={[cabeceraEstudiante.fondo, { height: insets.top }]} />
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Editar perfil</Text>
           <Text style={styles.headerSubtitle}>
@@ -111,11 +117,12 @@ export default function EditarPerfil() {
             <MaterialCommunityIcons
               name="account-outline"
               size={20}
-              color="#73799D"
+              color="#1A1E3C"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
+              accessibilityLabel="Nombre completo"
               value={nombreCompleto}
               onChangeText={setNombreCompleto}
             />
@@ -126,11 +133,12 @@ export default function EditarPerfil() {
             <MaterialCommunityIcons
               name="earth"
               size={20}
-              color="#73799D"
+              color="#1A1E3C"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
+              accessibilityLabel="País"
               value={pais}
               onChangeText={setPais}
             />
@@ -141,11 +149,12 @@ export default function EditarPerfil() {
             <MaterialCommunityIcons
               name="map-marker-outline"
               size={20}
-              color="#73799D"
+              color="#1A1E3C"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
+              accessibilityLabel="Ciudad"
               value={ciudad}
               onChangeText={setCiudad}
             />
@@ -156,11 +165,12 @@ export default function EditarPerfil() {
             <MaterialCommunityIcons
               name="phone-outline"
               size={20}
-              color="#73799D"
+              color="#1A1E3C"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
+              accessibilityLabel="Teléfono"
               value={telefono}
               onChangeText={setTelefono}
               keyboardType="phone-pad"
@@ -172,11 +182,12 @@ export default function EditarPerfil() {
             <MaterialCommunityIcons
               name="school-outline"
               size={20}
-              color="#73799D"
+              color="#1A1E3C"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
+              accessibilityLabel="Universidad"
               value={universidad}
               onChangeText={setUniversidad}
             />
@@ -187,17 +198,22 @@ export default function EditarPerfil() {
             <MaterialCommunityIcons
               name="home-outline"
               size={20}
-              color="#73799D"
+              color="#1A1E3C"
               style={styles.icon}
             />
             <TextInput
               style={styles.input}
+              accessibilityLabel="Dirección"
               value={direccion}
               onChangeText={setDireccion}
             />
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={guardarCambios}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.button}
+            onPress={guardarCambios}
+          >
             <MaterialCommunityIcons
               name="content-save-outline"
               size={20}
@@ -206,11 +222,15 @@ export default function EditarPerfil() {
             <Text style={styles.buttonText}>Guardar cambios</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
             <Text style={styles.backText}>Cancelar</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
