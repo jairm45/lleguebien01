@@ -15,6 +15,16 @@ import { destinoEstudianteSinRed, destinoPerfil } from "../services/perfilSesion
 import { useSesion } from "../context/SesionContext";
 import { styles } from "../styles/WelcomeStyles";
 
+const puntos = [
+  { top: 34, left: "9%", size: 3, opacity: 0.65 },
+  { top: 17, left: "36%", size: 4, opacity: 0.8 },
+  { top: 71, left: "24%", size: 2, opacity: 0.65 },
+  { top: 105, left: "51%", size: 4, opacity: 0.75 },
+  { top: 130, left: "8%", size: 2, opacity: 0.55 },
+  { top: 155, left: "72%", size: 3, opacity: 0.7 },
+  { top: 204, left: "93%", size: 3, opacity: 0.65 },
+] as const;
+
 export default function WelcomeScreen() {
   const { session, cargando, actualizarPerfil } = useSesion();
   const margen = useSafeAreaInsets();
@@ -56,15 +66,40 @@ export default function WelcomeScreen() {
   }
 
   return (
-    <ScrollView style={[styles.container, { paddingTop: margen.top + 20, paddingBottom: margen.bottom }]} contentContainerStyle={{ flexGrow: 1 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.scroll,
+        { paddingTop: margen.top + 16, paddingBottom: margen.bottom + 20 },
+      ]}
+    >
       <StatusBar style="light" />
 
       <View style={styles.content}>
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.cielo}
+        >
+          <View style={[styles.halo, styles.haloEstudiante]}>
+            <View style={[styles.orbe, styles.orbeEstudiante]} />
+          </View>
+          <View style={[styles.halo, styles.haloSeguidor]}>
+            <View style={[styles.orbe, styles.orbeSeguidor]} />
+          </View>
+          {puntos.map(({ top, left, size, opacity }) => (
+            <View
+              key={top}
+              style={[styles.punto, { top, left, width: size, height: size, opacity }]}
+            />
+          ))}
+        </View>
         <View style={styles.logoContainer}>
           <MaterialCommunityIcons
-            name="map-marker-radius"
-            size={60}
-            color="#F5A623"
+            name="map-marker-outline"
+            size={31}
+            color="#1A1E3C"
           />
         </View>
 
@@ -76,12 +111,13 @@ export default function WelcomeScreen() {
         <Text style={styles.question}>¿Cómo vas a usar la app?</Text>
 
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.card}
           onPress={() => router.push("/auth")}
           activeOpacity={0.8}
         >
           <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="school" size={30} color="#FFF" />
+            <MaterialCommunityIcons name="school-outline" size={24} color="#1A1E3C" />
           </View>
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>Soy estudiante</Text>
@@ -97,7 +133,7 @@ export default function WelcomeScreen() {
         </TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" style={styles.card} onPress={() => router.push("/familiar/acceso")}>
           <View style={[styles.iconCircle, { backgroundColor: "#1ABC9C" }]}>
-            <MaterialCommunityIcons name="account-heart" size={30} color="#1A1E3C" />
+            <MaterialCommunityIcons name="account-heart-outline" size={24} color="#1A1E3C" />
           </View>
           <View style={styles.cardText}><Text style={styles.cardTitle}>Soy familiar o seguidor</Text>
             <Text style={styles.cardSubtitle}>Quiero acompañar a un estudiante.</Text></View>

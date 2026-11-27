@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import {
   Alert,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -121,91 +122,100 @@ export default function AuthScreen() {
     <View style={[styles.container, { paddingBottom: margen.bottom }]}>
       <StatusBar style="light" />
 
-      <View style={[styles.header, { paddingTop: margen.top + 18 }]}>
-        <View style={styles.logoContainer}>
-          <MaterialCommunityIcons name="school" size={40} color="#F5A623" />
+      <View style={[styles.franjaSuperior, { height: margen.top }]} />
+      <ScrollView
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scroll}
+      >
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <MaterialCommunityIcons name="school" size={40} color="#1A1E3C" />
+          </View>
+          <Text style={styles.title}>Estudiante</Text>
+          <Text style={styles.subtitle}>
+            {paso === "correo"
+              ? "Ingresa tu correo institucional"
+              : "Ingresa tu PIN"}
+          </Text>
         </View>
-        <Text style={styles.title}>Estudiante</Text>
-        <Text style={styles.subtitle}>
-          {paso === "correo"
-            ? "Ingresa tu correo institucional"
-            : "Ingresa tu PIN"}
-        </Text>
-      </View>
 
-      <View style={styles.body}>
-        {paso === "correo" ? (
-          <>
-            <Text style={styles.label}>Correo electrónico</Text>
-            <View style={styles.inputContainer}>
-              <MaterialCommunityIcons
-                name="email-outline"
-                size={20}
-                color="#73799D"
-              />
+        <View style={styles.body}>
+          {paso === "correo" ? (
+            <>
+              <Text style={styles.label}>Correo electrónico</Text>
+              <View style={styles.inputContainer}>
+                <MaterialCommunityIcons
+                  name="email-outline"
+                  size={20}
+                  color="#535978"
+                />
+                <TextInput
+                  style={styles.input}
+                  accessibilityLabel="Correo electrónico"
+                  placeholderTextColor="#535978"
+                  placeholder={`usuario${dominioCorreo}`}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={correo}
+                  onChangeText={setCorreo}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={continuarConCorreo}
+              >
+                <Text style={styles.continueButtonText}>Continuar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.label}>PIN de {longitudPin} dígitos</Text>
+              <View style={styles.pinContainer}>{renderPinBoxes()}</View>
+
               <TextInput
-                style={styles.input}
-                placeholder={`usuario${dominioCorreo}`}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={correo}
-                onChangeText={setCorreo}
+                style={{ height: 0, width: 0, position: "absolute" }}
+                accessibilityLabel="PIN de seis dígitos"
+                value={pin}
+                onChangeText={setPin}
+                keyboardType="number-pad"
+                maxLength={longitudPin}
                 autoFocus
               />
-            </View>
 
-            <TouchableOpacity
-              style={styles.continueButton}
-              onPress={continuarConCorreo}
-            >
-              <Text style={styles.continueButtonText}>Continuar</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <Text style={styles.label}>PIN de {longitudPin} dígitos</Text>
-            <View style={styles.pinContainer}>{renderPinBoxes()}</View>
-
-            <TextInput
-              style={{ height: 0, width: 0, position: "absolute" }}
-              value={pin}
-              onChangeText={setPin}
-              keyboardType="number-pad"
-              maxLength={longitudPin}
-              autoFocus
-            />
-
-            <TouchableOpacity
-              style={styles.button}
-              onPress={manejarAuth}
-              disabled={cargando}
-            >
-              <Text style={styles.buttonText}>
-                {cargando ? "Cargando..." : "Iniciar sesión"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* 👇 NUEVO ENLACE DE RECUPERACIÓN */}
-            <TouchableOpacity
-              onPress={() => router.push("/rol/recuperar/solicitar")}
-            >
-              <Text style={styles.forgotText}>¿Se te olvidó tu PIN?</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setPaso("correo")}>
-              <Text style={styles.backText}>Volver al correo</Text>
-            </TouchableOpacity>
-
-            {/* BOTÓN DE REGISTRO AGREGADO */}
-            <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>¿No tienes cuenta?</Text>
-              <TouchableOpacity onPress={() => router.replace("/registro")}>
-                <Text style={styles.registerLink}>Regístrate</Text>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={manejarAuth}
+                disabled={cargando}
+              >
+                <Text style={styles.buttonText}>
+                  {cargando ? "Cargando..." : "Iniciar sesión"}
+                </Text>
               </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </View>
+
+              {/* 👇 NUEVO ENLACE DE RECUPERACIÓN */}
+              <TouchableOpacity
+                onPress={() => router.push("/rol/recuperar/solicitar")}
+              >
+                <Text style={styles.forgotText}>¿Se te olvidó tu PIN?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setPaso("correo")}>
+                <Text style={styles.backText}>Volver al correo</Text>
+              </TouchableOpacity>
+
+              {/* BOTÓN DE REGISTRO AGREGADO */}
+              <View style={styles.registerContainer}>
+                <Text style={styles.registerText}>¿No tienes cuenta?</Text>
+                <TouchableOpacity onPress={() => router.replace("/registro")}>
+                  <Text style={styles.registerLink}>Regístrate</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      </ScrollView>
     </View>
   );
 }

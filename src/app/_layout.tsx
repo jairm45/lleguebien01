@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { useReducedMotion } from "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { DestinoSeleccionProvider } from "../context/DestinoSeleccionContext";
@@ -14,6 +15,8 @@ import { useAccionesNotificacion } from "../hooks/useAccionesNotificacion";
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
+  const reducirMovimiento = useReducedMotion();
+  const transicionAcceso = reducirMovimiento ? "none" : "fade_from_bottom";
   const { cargando, session, perfil } = useSesion();
   const { bloqueo, leyendoCache, esperarParaNotificaciones } = useGuardiaRecorrido(perfil?.rol === "seguidor" ? undefined : session?.user.id);
 
@@ -40,11 +43,11 @@ function RootNavigator() {
         <Stack.Protected guard={!bloqueo}>
           <Stack.Screen name="index" />
           <Stack.Screen name="seguir" />
-          <Stack.Screen name="familiar" />
+          <Stack.Screen name="familiar" options={{ animation: transicionAcceso }} />
           <Stack.Screen name="seguidor" />
           <Stack.Protected guard={perfil?.rol !== "seguidor"}>
-            <Stack.Screen name="auth" />
-            <Stack.Screen name="registro" />
+            <Stack.Screen name="auth" options={{ animation: transicionAcceso }} />
+            <Stack.Screen name="registro" options={{ animation: transicionAcceso }} />
             <Stack.Screen name="datos-personales" />
             <Stack.Screen name="datos-usuario" />
             <Stack.Screen name="permisos" />
