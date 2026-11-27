@@ -93,8 +93,8 @@ const TAREA_RECEPCION = "LLEGUEBIEN_RECEPCION_CHECKIN";
 TaskManager.defineTask<Notifications.NotificationTaskPayload>(TAREA_RECEPCION, async ({ data, error }) => {
   if (error || !data) return;
   if ("actionIdentifier" in data) {
-    await guardarIntencion(data);
-    await confirmarRecepcion(data.notification.request.content.data);
+    const datos = await guardarIntencion(data);
+    await confirmarRecepcion(datos);
     return;
   }
   const carga = data.data;

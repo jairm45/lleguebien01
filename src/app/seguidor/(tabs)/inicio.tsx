@@ -1,11 +1,12 @@
 import Icono from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
-import { Avatar, Aviso, Boton, Pantalla, ui, color } from "../../components/seguidor/Controles";
-import { Avance, hora } from "../../components/seguidor/Avance";
-import { useSesion } from "../../context/SesionContext";
-import { useConsultaSeguidor } from "../../hooks/useConsultaSeguidor";
-import { cargarInicio } from "../../services/seguimientoFamiliar";
+import { Avatar, Aviso, Boton, Pantalla, ui, color } from "../../../components/seguidor/Controles";
+import { Avance, hora } from "../../../components/seguidor/Avance";
+import { useSesion } from "../../../context/SesionContext";
+import { useConsultaSeguidor } from "../../../hooks/useConsultaSeguidor";
+import { destinoMapa } from "../../../lib/navegacionSeguidor";
+import { cargarInicio } from "../../../services/seguimientoFamiliar";
 
 export default function Inicio() {
   const { perfil } = useSesion();
@@ -18,13 +19,15 @@ export default function Inicio() {
     {!datos && !error && <Text style={ui.texto}>Cargando estudiantes…</Text>}
     {rutas?.map(r => {
       const emergencia = r.estado === "emergencia";
-      return <View key={r.id} style={[ui.tarjeta, emergencia && { borderColor: color.rojo, backgroundColor: "#FFF1F1" }]}>
+      const abrir = () => router.push(destinoMapa(r.id, emergencia));
+      return <Pressable accessibilityRole="button" onPress={abrir} key={r.id} style={[ui.tarjeta, emergencia && { borderColor: color.rojo, backgroundColor: "#FFF1F1" }]}>
         <Text style={[ui.etiqueta, { color: emergencia ? "#AD292F" : color.tinta }]}>{emergencia ? "Alerta de emergencia" : "● En vivo"}</Text>
         <Text style={ui.seccion}>{datos?.estudiantes.find(e => e.id === r.id_usuario)?.nombre_completo}</Text>
         {!emergencia && <Avance ruta={r} />}
-        <Boton titulo={emergencia ? "Ver emergencia" : "Ver en el mapa"} peligro={emergencia}
-          accion={() => router.navigate({ pathname: emergencia ? "/seguidor/emergencia" : "/seguidor/seguimiento", params: { recorridoId: r.id } })} />
-      </View>;
+        <View style={[ui.boton, { backgroundColor: emergencia ? "#B83136" : color.tinta }]}>
+          <Text style={[ui.botonTexto, { color: "white" }]}>{emergencia ? "Ver emergencia" : "Ver en el mapa"}</Text>
+        </View>
+      </Pressable>;
     })}
     <Text style={ui.seccion}>Mis estudiantes</Text>
     {datos?.estudiantes.length === 0 && <Text style={ui.texto}>Aún no acompañas a ningún estudiante. Usa su invitación para empezar.</Text>}

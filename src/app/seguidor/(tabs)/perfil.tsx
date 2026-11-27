@@ -5,9 +5,9 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useState, type ComponentProps } from "react";
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Aviso, Boton, color, ui, useOperacion } from "../../components/seguidor/Controles";
-import { useSesion } from "../../context/SesionContext";
-import { crearCanalesNotificaciones, cerrarSesionSeguidor, registrarTokenPush } from "../../services/notificacionesPush";
+import { Aviso, Boton, color, ui, useOperacion } from "../../../components/seguidor/Controles";
+import { useSesion } from "../../../context/SesionContext";
+import { crearCanalesNotificaciones, cerrarSesionSeguidor, registrarTokenPush } from "../../../services/notificacionesPush";
 
 type DatoPerfil = {
   etiqueta: string;

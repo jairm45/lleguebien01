@@ -1,11 +1,12 @@
 import { router } from "expo-router";
 import { useCallback, useState } from "react";
-import { SectionList, Text, View } from "react-native";
+import { Pressable, SectionList, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Aviso, Boton, Cabecera, color, ui } from "../../components/seguidor/Controles";
-import { hora } from "../../components/seguidor/Avance";
-import { useConsultaSeguidor } from "../../hooks/useConsultaSeguidor";
-import { cargarHistorial } from "../../services/seguimientoFamiliar";
+import { Aviso, Boton, Cabecera, color, ui } from "../../../components/seguidor/Controles";
+import { hora } from "../../../components/seguidor/Avance";
+import { useConsultaSeguidor } from "../../../hooks/useConsultaSeguidor";
+import { destinoMapa } from "../../../lib/navegacionSeguidor";
+import { cargarHistorial } from "../../../services/seguimientoFamiliar";
 
 export default function Alertas() {
   const margen = useSafeAreaInsets();
@@ -25,13 +26,19 @@ export default function Alertas() {
       ListEmptyComponent={error ? <><Aviso mensaje={error} /><Boton titulo="Reintentar" accion={reintentar} /></> :
         <Text style={ui.texto}>{datos ? "Aquí aparecerán sus salidas, llegadas y emergencias." : "Consultando actividad…"}</Text>}
       ListFooterComponent={datos?.hayMas ? <Boton secundario titulo="Ver actividad anterior" accion={() => cambiarLimite(n => n + 40)} /> : undefined}
-      renderItem={({ item: e }) => <View style={[ui.tarjeta, !!e.alertaId && { borderColor: color.rojo, backgroundColor: "#FFF2F2" }]}>
-        <Text style={ui.etiqueta}>{e.tipo === "emergencia" ? "Alerta de emergencia" : e.nombre + (e.tipo === "salida" ? " salió de camino a casa" : " llegó a casa")}</Text>
-        {!!e.alertaId && <Text style={ui.texto}>{e.nombre}</Text>}
-        <Text style={ui.texto}>{new Date(e.fecha).toLocaleDateString("es-CO")} · {hora(e.fecha)}</Text>
-        {e.alertaId && <Boton peligro titulo="Ver alerta" accion={() => router.navigate({
-          pathname: "/seguidor/emergencia", params: { recorridoId: e.recorridoId, alertaId: e.alertaId },
-        })} />}
-      </View>} />
+      renderItem={({ item: e }) => {
+        const fecha = new Date(e.fecha).toLocaleDateString("es-CO") + " · " + hora(e.fecha);
+        if (e.tipo !== "emergencia") return <View style={ui.tarjeta}>
+          <Text style={ui.etiqueta}>{e.nombre + (e.tipo === "salida" ? " salió de camino a casa" : " llegó a casa")}</Text>
+          <Text style={ui.texto}>{fecha}</Text>
+        </View>;
+        return <Pressable accessibilityRole="button" style={[ui.tarjeta, { borderColor: color.rojo, backgroundColor: "#FFF2F2" }]}
+          onPress={() => router.push(destinoMapa(e.recorridoId, true, e.alertaId))}>
+          <Text style={ui.etiqueta}>Alerta de emergencia</Text>
+          <Text style={ui.texto}>{e.nombre}</Text>
+          <Text style={ui.texto}>{fecha}</Text>
+          <Text style={ui.etiqueta}>Ver alerta ›</Text>
+        </Pressable>;
+      }} />
   </View>;
 }

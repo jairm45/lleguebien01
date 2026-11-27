@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import { destinoPushSeguidor } from "../lib/navegacionSeguidor";
 import { obtenerDb } from "./colaOffline";
 
 export type Intencion = {
@@ -7,21 +8,33 @@ export type Intencion = {
   datos: Record<string, unknown>;
 };
 
-function claveRespuesta(respuesta: Notifications.NotificationResponse) {
+function datosRespuesta({ notification }: Notifications.NotificationResponse): Record<string, unknown> | null {
+  const contenido = notification.request.content;
+  if (contenido.data) return contenido.data;
+  // En Android la tarea en segundo plano recibe el bundle nativo sin el mapeo del listener de Expo.
+  if ("dataString" in contenido && typeof contenido.dataString === "string") {
+    const datos = JSON.parse(contenido.dataString);
+    if (datos && typeof datos === "object" && !Array.isArray(datos)) return datos;
+  }
+  return null;
+}
+
+function claveRespuesta(respuesta: Notifications.NotificationResponse, datos = datosRespuesta(respuesta)) {
   const { request, date } = respuesta.notification;
-  return JSON.stringify([request.identifier, request.content.data?.publicacion ?? date, respuesta.actionIdentifier]);
+  return JSON.stringify([request.identifier, datos?.publicacion ?? date, respuesta.actionIdentifier]);
 }
 
 export async function guardarIntencion(respuesta: Notifications.NotificationResponse | null) {
   if (!respuesta) return;
-  const { request } = respuesta.notification;
-  const datos = request.content.data;
-  if (typeof datos?.recorrido_id !== "string") return;
-  const clave = claveRespuesta(respuesta);
+  const datos = datosRespuesta(respuesta);
+  if (!datos || (typeof datos.recorrido_id !== "string" &&
+    !destinoPushSeguidor(datos, respuesta.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER))) return;
+  const clave = claveRespuesta(respuesta, datos);
   const intencion: Intencion = { clave, accion: respuesta.actionIdentifier, datos };
   const db = await obtenerDb();
   await db.runAsync("insert or ignore into intenciones_notificacion(clave,datos,creada_en) values(?,?,?)",
     clave, JSON.stringify(intencion), Date.now());
+  return datos;
 }
 
 export async function siguienteIntencion(): Promise<Intencion | null> {

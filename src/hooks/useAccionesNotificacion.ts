@@ -1,9 +1,10 @@
 import * as Network from "expo-network";
 import * as Notifications from "expo-notifications";
-import { router, useNavigationContainerRef, useRootNavigationState, usePathname } from "expo-router";
+import { router, useGlobalSearchParams, useNavigationContainerRef, useRootNavigationState, usePathname } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
+import { destinoPushSeguidor } from "../lib/navegacionSeguidor";
 import { useSesion } from "../context/SesionContext";
 import { confirmarCheckinConCola, obtenerRecorridoActivoLocal } from "../services/colaOffline";
 import { obtenerCheckinAbierto } from "../services/emergencias";
@@ -18,7 +19,8 @@ export function useAccionesNotificacion(esperarRecorrido: boolean) {
   const familiar = perfil?.rol === "seguidor";
   const navegador = useNavigationContainerRef();
   const ruta = usePathname();
-  const rutaActual = useRef(ruta);
+  const { recorridoId: recorridoVisible, alertaId: alertaVisible } = useGlobalSearchParams();
+  const pantalla = useRef({ ruta, recorridoVisible, alertaVisible });
   const raiz = useRootNavigationState()?.key;
   const usuarioId = session?.user.id;
   const despertar = useRef<() => void>(() => {});
@@ -27,7 +29,7 @@ export function useAccionesNotificacion(esperarRecorrido: boolean) {
     if (Platform.OS === "web" || !familiar) return;
     Notifications.setNotificationHandler({
       handleNotification: async n => {
-        const mostrar = typeof n.request.content.data?.alerta_id === "string";
+        const mostrar = !!destinoPushSeguidor(n.request.content.data ?? {}, true);
         return { shouldShowBanner: mostrar, shouldShowList: mostrar, shouldPlaySound: mostrar, shouldSetBadge: false };
       },
     });
@@ -35,9 +37,9 @@ export function useAccionesNotificacion(esperarRecorrido: boolean) {
   }, [familiar]);
 
   useEffect(() => {
-    rutaActual.current = ruta;
+    pantalla.current = { ruta, recorridoVisible, alertaVisible };
     despertar.current();
-  }, [ruta]);
+  }, [ruta, recorridoVisible, alertaVisible]);
 
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -60,29 +62,36 @@ export function useAccionesNotificacion(esperarRecorrido: boolean) {
     let ocupado = false;
     let enPantalla: { clave: string; hasta: number } | null = null;
     const procesar = async () => {
-      if (ocupado || !vigente || !navegador.isReady() || rutaActual.current === "/") return;
+      if (ocupado || !vigente || !navegador.isReady() || pantalla.current.ruta === "/") return;
       ocupado = true;
       try {
         const i = await siguienteIntencion();
         if (!i || !vigente || (enPantalla?.clave === i.clave && enPantalla.hasta > Date.now())) return;
         const { datos, accion } = i;
         const recorridoId = String(datos.recorrido_id);
-        if (typeof datos.alerta_id === "string" && accion === Notifications.DEFAULT_ACTION_IDENTIFIER) {
-          if (leyendoPerfil || errorPerfil) return;
-          if (familiar) {
-            if (!perfil?.ciudad || !perfil?.identificacion) return;
-            // S11 verifica el vínculo y ambos identificadores con RLS antes de dibujar el mapa.
-            router.navigate({ pathname: "/seguidor/emergencia", params: { recorridoId, alertaId: datos.alerta_id } });
-          } else {
-            const propio = await leerRecorridoVerificado(usuarioId);
-            if (!vigente) return;
-            if (propio?.id === recorridoId && propio.estado === "emergencia")
-              router.navigate({ pathname: "/recorrido/emergencia", params: { recorridoId, modo: String(datos.modo ?? "") } });
+        const destino = destinoPushSeguidor(datos, accion === Notifications.DEFAULT_ACTION_IDENTIFIER);
+        if (destino && (leyendoPerfil || errorPerfil || !perfil)) return;
+        if (familiar) {
+          if (destino) {
+            if (!perfil?.ciudad || !perfil.pais || !perfil.identificacion || !perfil.nombre_completo || !perfil.telefono) return;
+            const actual = pantalla.current;
+            if (actual.ruta !== destino.pathname || actual.recorridoVisible !== destino.params.recorridoId ||
+              actual.alertaVisible !== destino.params.alertaId) {
+              router.navigate(destino);
+              return; // El cambio de ruta despierta la cola y confirma el toque con sus dos identificadores.
+            }
           }
           await completarIntencion(i.clave);
           return;
         }
-        if (familiar) { await completarIntencion(i.clave); return; }
+        if (typeof datos.alerta_id === "string" && accion === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+          const propio = await leerRecorridoVerificado(usuarioId);
+          if (!vigente) return;
+          if (propio?.id === recorridoId && propio.estado === "emergencia")
+            router.navigate({ pathname: "/recorrido/emergencia", params: { recorridoId, modo: String(datos.modo ?? "") } });
+          await completarIntencion(i.clave);
+          return;
+        }
         const red = await Network.getNetworkStateAsync().catch(() => null);
         let enLinea = red?.isConnected !== false && red?.isInternetReachable !== false;
         let activo;

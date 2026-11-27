@@ -5,6 +5,7 @@ import { Linking, Platform, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useConsultaSeguidor } from "../../hooks/useConsultaSeguidor";
 import { CENTRO_BUENAVENTURA, distanciaHaversineMetros, formatearDistancia, type Coordenada } from "../../lib/recorrido";
+import { destinoMapa, parametrosMapa } from "../../lib/navegacionSeguidor";
 import { consultaMapa, zonaActual, type Seguimiento } from "../../services/seguimientoFamiliar";
 import { obtenerZonasRiesgo, type ZonasRiesgo } from "../../services/zonasRiesgo";
 import { MapaMapbox } from "../recorrido/MapaMapbox";
@@ -20,22 +21,32 @@ function Antiguedad({ fecha }: { fecha?: string }) {
 }
 
 export function MapaFamiliar({ emergencia }: { emergencia: boolean }) {
-  const { recorridoId, alertaId } = useLocalSearchParams<{ recorridoId: string; alertaId?: string }>();
-  return <ConsultaMapa key={[recorridoId, alertaId].join("/")} recorridoId={recorridoId} alertaId={alertaId} emergencia={emergencia} />;
+  const params = useLocalSearchParams<{ recorridoId?: string | string[]; alertaId?: string | string[] }>();
+  const ids = parametrosMapa(params.recorridoId, params.alertaId);
+  if (!ids.recorridoId) return <Pantalla titulo={emergencia ? "Alerta de emergencia" : "Seguimiento"}>
+    <Aviso mensaje={ids.error} />
+    <Boton titulo="Volver" accion={volver} />
+  </Pantalla>;
+  return <ConsultaMapa key={[ids.recorridoId, ids.alertaId].join("/")} recorridoId={ids.recorridoId} alertaId={ids.alertaId} emergencia={emergencia} />;
+}
+
+function volver() {
+  if (router.canGoBack()) router.back();
+  else router.replace("/seguidor/inicio");
 }
 
 function ConsultaMapa({ recorridoId, alertaId, emergencia }: { recorridoId: string; alertaId?: string; emergencia: boolean }) {
-  const leer = useMemo(() => consultaMapa(recorridoId, alertaId), [recorridoId, alertaId]);
+  const leer = useMemo(() => consultaMapa(recorridoId, alertaId, emergencia), [recorridoId, alertaId, emergencia]);
   const { datos, error, reintentar } = useConsultaSeguidor(leer, recorridoId);
   useFocusEffect(useCallback(() => {
     if (!emergencia && datos?.ruta.estado === "emergencia") {
-      router.replace({ pathname: "/seguidor/emergencia", params: { recorridoId, ...(datos.alerta ? { alertaId: datos.alerta.id } : {}) } });
+      router.replace(destinoMapa(recorridoId, true, datos.alerta?.id));
     }
   }, [datos, emergencia, recorridoId]));
   if (!datos || error) return <Pantalla titulo={emergencia ? "Alerta de emergencia" : "Seguimiento"}>
     <Text style={ui.texto}>{error ?? "Cargando el recorrido…"}</Text>
     {error && <Boton titulo="Reintentar" accion={reintentar} />}
-    <Boton secundario titulo="Volver al inicio" accion={() => router.navigate("/seguidor/inicio")} />
+    <Boton secundario titulo="Volver" accion={volver} />
   </Pantalla>;
   return <DetalleMapa key={recorridoId + (alertaId ?? "")} datos={datos} emergencia={emergencia} />;
 }
@@ -108,7 +119,7 @@ function DetalleMapa({ datos, emergencia }: { datos: Seguimiento; emergencia: bo
         })} /> : <Boton secundario titulo="Ver ruta" desactivado={!ruta.ruta_geojson} accion={() => { setSeguir(false); encuadrar(n => n + 1); }} />}
       </View>
       {!seguir && <Boton secundario titulo="Centrar estudiante" desactivado={!posicion} accion={() => setSeguir(true)} />}
-      <Boton secundario titulo="Volver al inicio" accion={() => router.navigate("/seguidor/inicio")} />
+      <Boton secundario titulo="Volver" accion={volver} />
     </ScrollView>
   </View>;
 }

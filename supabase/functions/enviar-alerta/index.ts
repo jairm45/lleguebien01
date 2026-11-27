@@ -331,7 +331,7 @@ async function notificarDispositivos(
     }, 503);
   }
 
-  const url = `lleguebien01://recorrido/emergencia?alertaId=${alerta.id}&recorridoId=${alerta.id_recorrido}`;
+  const url = `lleguebien01://seguidor/emergencia?alertaId=${alerta.id}&recorridoId=${alerta.id_recorrido}`;
   const cuerpo =
     alerta.tipo === "pasiva"
       ? "Su recorrido se detuvo sin respuesta al check-in de seguridad. Abre para ver la ubicación en vivo."

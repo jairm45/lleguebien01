@@ -69,7 +69,7 @@ export type Punto = { id: number; lat: number; lng: number; precision_m: number 
 type AlertaMapa = Pick<Alerta, "id" | "estado" | "lat" | "lng" | "iniciada_en" | "terminada_en">;
 export type Seguimiento = { ruta: RecorridoActivo; estudiante: EstudianteSeguido; alerta: AlertaMapa | null; puntos: Punto[] };
 
-export function consultaMapa(recorridoId: string, alertaId?: string) {
+export function consultaMapa(recorridoId: string, alertaId?: string, emergencia = false) {
   // Las inserciones FIFO pueden llegar tarde. Se leen por id y se dibujan por fecha de captura.
   let ultimoId = 0;
   const puntos = new Map<number, Punto>();
@@ -85,7 +85,8 @@ export function consultaMapa(recorridoId: string, alertaId?: string) {
     let q = supabase.from("alertas").select("id,estado,lat,lng,iniciada_en,terminada_en").eq("id_recorrido", recorridoId);
     q = alertaId ? q.eq("id", alertaId) : q.eq("estado", "activa");
     const { data: alerta, error } = await q.order("iniciada_en", { ascending: false }).limit(1).maybeSingle<AlertaMapa>();
-    if (error || (alertaId && !alerta)) throw new Error("No se pudo consultar esta alerta.");
+    if (error) throw new Error("No se pudo consultar la alerta. Revisa tu conexión y vuelve a intentarlo.");
+    if ((emergencia || alertaId) && !alerta) throw new Error("La alerta solicitada ya no está disponible para tu cuenta.");
     for (;;) {
       const { data, error: fallo } = await supabase.from("recorrido_ubicaciones")
         .select("id,lat,lng,precision_m,captured_at").eq("recorrido_id", recorridoId).eq("es_valido", true)
