@@ -39,7 +39,7 @@ cd android && ./gradlew assembleRelease                            # → android
 - `npm run lint` (`expo lint`) is **not usable yet**: there is no ESLint config or dependency. Do not treat lint as part of verification unless intentionally configuring ESLint.
 - There is no automated test runner. Verify changes with `npx tsc --noEmit`, `npx expo-doctor`, and manual testing on a Development Build.
 - Releases de APK: `RELEASES.md` (secrets, tags `v*`, release rodante `latest-apk` y URLs fijas de descarga). El workflow no usa EAS, compila con Gradle.
-- `README.md` is the stock `create-expo-app` template and is stale; trust `package.json`, `app.json`, `docs/*.sql`, and this file instead.
+- `README.md` documents the app, architecture, backend, environment setup, and verification in Spanish. Check `package.json`, `app.json`, and the SQL files in `docs/` when updating it.
 
 ## Architecture & PostGIS / Offline Rules
 
